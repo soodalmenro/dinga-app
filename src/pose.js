@@ -4,12 +4,16 @@
 import content from './content.json';
 
 const BASE = `${import.meta.env.BASE_URL}pose/`;
-let pose = null; let loading = null; let handler = null;
+let pose = null; let loading = null; let handler = null; let sending = false;
 
 function loadScript(src) {
   return new Promise((res, rej) => {
     const el = document.createElement('script');
-    el.src = src; el.onload = res; el.onerror = () => rej(new Error('script'));
+    const fail = () => { clearTimeout(timer); el.remove(); rej(new Error('script')); };
+    const timer = setTimeout(fail, 20000);
+    el.src = src;
+    el.onload = () => { clearTimeout(timer); res(); };
+    el.onerror = fail;
     document.head.appendChild(el);
   });
 }
@@ -23,7 +27,16 @@ export function initPose() {
       const p = new window.Pose({ locateFile: (f) => `${BASE}${f}` });
       p.setOptions({ modelComplexity: 0, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
       p.onResults((r) => { if (handler) handler(r); });
-      await p.initialize();
+      let timer;
+      try {
+        await Promise.race([
+          p.initialize(),
+          new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('pose_timeout')), 30000); }),
+        ]);
+      } catch (error) {
+        if (p.close) Promise.resolve(p.close()).catch(() => {});
+        throw error;
+      } finally { clearTimeout(timer); }
       pose = p;
       return true;
     })().catch(() => { loading = null; return false; });
@@ -34,7 +47,11 @@ export function initPose() {
 const deg = (r) => (r * 180) / Math.PI;
 // 관절 좌표(0~1)로 자세 값을 잰다. w, h는 영상 크기
 export function measure(lm, hand, w, h) {
-  const P = (i) => ({ x: lm[i].x * w, y: lm[i].y * h, v: lm[i].visibility == null ? 1 : lm[i].visibility });
+  const P = (i) => {
+    const point = lm && lm[i];
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return { x: 0, y: 0, v: 0 };
+    return { x: point.x * w, y: point.y * h, v: point.visibility == null ? 1 : point.visibility };
+  };
   const S = hand === 'right' ? { el: 14, wr: 16, pk: 18, ix: 20 } : { el: 13, wr: 15, pk: 17, ix: 19 };
   const out = { wrist: null, tilt: null, neck: null };
   const el = P(S.el); const wr = P(S.wr); const ix = P(S.ix); const pk = P(S.pk);
@@ -64,27 +81,41 @@ export function judge(m, th = content.poseThresholds) {
 // 영상에서 자세를 계속 본다. 같은 문제가 holdMs 동안 이어지면 onIssue를 부른다
 export function watchPosture(video, { onIssue, onStatus }) {
   const th = content.poseThresholds;
-  let stopped = false; let busy = false; const since = { wrist: 0, shoulder: 0 };
-  handler = (r) => {
+  let stopped = false; let timer; let errors = 0; const since = { wrist: null, shoulder: null };
+  const receive = (r) => {
     if (stopped) return;
     const lm = r.poseLandmarks; const now = performance.now();
-    if (!lm) { since.wrist = 0; since.shoulder = 0; onStatus('nobody'); return; }
+    if (!lm) { since.wrist = null; since.shoulder = null; onStatus('nobody'); return; }
     const m = measure(lm, th.hand, video.videoWidth || 480, video.videoHeight || 640);
     const bad = judge(m, th);
     onStatus(m.wrist == null && m.tilt == null ? 'nobody' : 'seen', m);
     ['wrist', 'shoulder'].forEach((k) => {
-      if (!bad.includes(k)) { since[k] = 0; return; }
-      if (!since[k]) since[k] = now;
-      else if (now - since[k] >= th.holdMs) { since[k] = 0; onIssue(k, m); }
+      if (!bad.includes(k)) { since[k] = null; return; }
+      if (since[k] == null) since[k] = now;
+      else if (now - since[k] >= th.holdMs) { since[k] = null; onIssue(k, m); }
     });
   };
   const loop = async () => {
     if (stopped) return;
-    if (pose && !busy && video.readyState >= 2) { busy = true; try { await pose.send({ image: video }); } catch (e) {} busy = false; }
-    setTimeout(loop, 250); // 1초에 약 4번이면 충분하고 폰이 덜 뜨거워진다
+    if (pose && !sending && video.readyState >= 2) {
+      sending = true;
+      handler = receive;
+      try {
+        await pose.send({ image: video });
+        errors = 0;
+      } catch (error) {
+        since.wrist = null; since.shoulder = null;
+        errors += 1;
+        if (!stopped && errors >= 3) { stopped = true; onStatus('error'); }
+      } finally {
+        if (handler === receive) handler = null;
+        sending = false;
+      }
+    }
+    if (!stopped) timer = setTimeout(loop, 250);
   };
   loop();
-  return () => { stopped = true; handler = null; };
+  return () => { stopped = true; clearTimeout(timer); if (handler === receive) handler = null; };
 }
 
 // 폰에서 기준값을 맞출 때 콘솔에서 써 볼 수 있게 열어 둔다

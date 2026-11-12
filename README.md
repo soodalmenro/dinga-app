@@ -66,6 +66,8 @@ npm run build    # 배포용 파일을 dist 폴더에 만든다
 - 기준을 넘은 자세가 1.5초 이어지면 알림 한 줄과 진동 1번. 알림 사이 15초, 파트당 최대 3번.
 - 기준값은 `content.json`의 `poseThresholds`. 검증된 수치가 아니라 시작값이다. 실제 폰과 기타로 맞춰야 한다.
 - 작은 카메라 아래 글자: "자세 보는 중" / "몸이 안 보여요"(폰 위치를 다시 잡으라는 뜻) / "판정 꺼짐"(판정 파일을 못 불러옴).
+- Em·C 레슨에서는 목표 부위가 가려지면 손목·어깨 안내를 표시한다. 판정이 실패하면 미리보기를 눌러 다시 시도할 수 있다. 권한 거부 상태에서는 ‘카메라 다시 켜기’를 제공한다.
+- 실제 폰과 기타 테스트는 [팀 테스트 안내](docs/TEAM_TESTING.md)를 따른다.
 
 ## 실제로 되는 것과 아닌 것
 
@@ -100,6 +102,7 @@ node qa/song-without-mic.cjs
 node qa/participant-handoff.cjs
 node qa/practice-exceptions.cjs
 node qa/mobile-layout.cjs
+node qa/pose-reliability.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.

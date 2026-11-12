@@ -37,16 +37,20 @@ function Posture({ lesson, s, update, next, speed }) {
   const [res, setRes] = useState(null);
   const video = useRef(null);
   const stream = useRef(null);
+  const openRequest = useRef(0);
   const focus = lesson ? lesson.postureFocus : 'all';
   const tip = content.postureTips[focus];
-  const stop = () => { if (stream.current) stream.current.getTracks().forEach((t) => t.stop()); stream.current = null; };
+  const stop = () => { openRequest.current += 1; if (stream.current) stream.current.getTracks().forEach((t) => t.stop()); stream.current = null; };
   const open = async () => {
+    stop();
+    const request = openRequest.current;
     try {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      if (request !== openRequest.current) { st.getTracks().forEach((track) => track.stop()); return; }
       stream.current = st;
       if (video.current) { video.current.srcObject = st; video.current.play().catch(() => {}); }
       setPhase('pre');
-    } catch (e) { logEvent('camera_denied'); setPhase('denied'); }
+    } catch (e) { if (request === openRequest.current) { logEvent('camera_denied'); setPhase('denied'); } }
   };
   useEffect(() => { open(); return stop; }, []);
   useEffect(() => {
@@ -222,14 +226,14 @@ export function Transition({ pair, next, speed, setBarProgress }) {
 const LIVE = ['play', 'beat', 'blind', 'transition']; // 자세를 보는 연주 단계
 
 // 오른쪽 위 작은 카메라. 누르면 접힌다
-function LiveCam({ stream, cam, note }) {
+function LiveCam({ stream, cam, note, retry }) {
   const v = useRef(null);
   const [hide, setHide] = useState(false);
   useEffect(() => { if (v.current && stream.current) { v.current.srcObject = stream.current; v.current.play().catch(() => {}); } }, [cam, hide]);
-  if (cam === 'denied') return null;
+  if (cam === 'denied') return <button className="pip mini" onClick={retry}>카메라 다시 켜기</button>;
   if (hide) return <button className="pip mini" onClick={() => setHide(false)}>내 모습 보기</button>;
   return (
-    <button className="pip" onClick={() => setHide(true)} aria-label="내 모습 숨기기">
+    <button className="pip" onClick={retry || (() => setHide(true))} aria-label={retry ? '자세 판정 다시 시도' : '내 모습 숨기기'}>
       {cam === 'on' ? <video ref={v} playsInline muted /> : null}
       <span>{cam === 'on' ? note : '카메라 준비 중'}</span>
     </button>
@@ -259,44 +263,57 @@ export default function Lesson({ s, update, target, go }) {
   useEffect(() => { if (steps[idx].type === 'song') go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() }); }, []);
 
   // ---------- 연주 중 자세 알림 (P1) ----------
-  const live = idea && LIVE.includes(step.type);
+  const live = idea && !done && LIVE.includes(step.type);
   const focus = lesson ? lesson.postureFocus : 'all';
   const camStream = useRef(null);
   const eye = useRef(null); // 판정용 영상(화면에는 안 보임)
   const [cam, setCam] = useState('off'); // off | on | denied
   const [poseState, setPoseState] = useState('off'); // off | loading | ready | fail
-  const [seen, setSeen] = useState(false);
+  const [poseNote, setPoseNote] = useState('몸이 안 보여요');
+  const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [poseAttempt, setPoseAttempt] = useState(0);
   const [alertKind, setAlertKind] = useState(null);
   const alerts = useRef({ n: 0, last: 0, timed: false });
+  const alertTimer = useRef(null);
   const liveRef = useRef(live); liveRef.current = live;
   const mode = s.panel.alert; // auto 정해진 시점(기본, 11/11 팀 결정) | real 실제 판정 | manual 진행자가 띄움 | off
   const fire = (kind, how, value) => {
+    if (!liveRef.current) return;
     alerts.current.n += 1; alerts.current.last = performance.now();
     setAlertKind(kind); sfx.alert();
     logEvent('posture_alert', { how, kind, value: value == null ? undefined : Math.round(value) });
-    setTimeout(() => setAlertKind(null), 3000);
+    clearTimeout(alertTimer.current);
+    alertTimer.current = setTimeout(() => setAlertKind(null), 3000);
   };
   const fireRef = useRef(fire); fireRef.current = fire;
-  // 첫 연주 단계에서 카메라를 켠다. 레슨을 벗어나면 끈다
   useEffect(() => {
-    if (!live || cam !== 'off') return undefined;
-    let dead = false;
+    if (!live) { clearTimeout(alertTimer.current); setAlertKind(null); }
+    return () => clearTimeout(alertTimer.current);
+  }, [live]);
+  // 연주 단계를 벗어나거나 파트를 끝내면 해당 스트림을 해제한다.
+  useEffect(() => {
+    if (!live) { setCam('off'); return undefined; }
+    let dead = false; let acquired = null;
+    setCam('off');
     (async () => {
       try {
         const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         if (dead) { st.getTracks().forEach((t) => t.stop()); return; }
+        acquired = st;
         camStream.current = st;
         if (eye.current) { eye.current.srcObject = st; eye.current.play().catch(() => {}); }
         setCam('on');
       } catch (e) { if (!dead) { logEvent('camera_denied', { where: 'live' }); setCam('denied'); } }
     })();
-    return () => { dead = true; };
-  }, [live]);
-  useEffect(() => () => { if (camStream.current) camStream.current.getTracks().forEach((t) => t.stop()); }, []);
-  useEffect(() => { if (done && camStream.current) { camStream.current.getTracks().forEach((t) => t.stop()); camStream.current = null; } }, [done]); // 파트가 끝나면 카메라를 끈다
+    return () => {
+      dead = true;
+      if (acquired) acquired.getTracks().forEach((track) => track.stop());
+      if (camStream.current === acquired) camStream.current = null;
+    };
+  }, [live, cameraAttempt]);
   // 실제 판정: 자세가 기준을 넘은 채 이어지면 알림
   useEffect(() => {
-    if (cam !== 'on' || mode !== 'real') return undefined;
+    if (!live || cam !== 'on' || mode !== 'real') return undefined;
     let stop = null; let dead = false;
     setPoseState('loading');
     initPose().then((ok) => {
@@ -305,8 +322,26 @@ export default function Lesson({ s, update, target, go }) {
       setPoseState(ok ? 'ready' : 'fail');
       if (!ok) return;
       const th = content.poseThresholds;
+      let previousStatus;
       stop = watchPosture(eye.current, {
-        onStatus: (st) => setSeen(st === 'seen'),
+        onStatus: (st, measured) => {
+          if (st === 'error') {
+            setPoseState('fail');
+            logEvent('pose_fail', { where: 'tracking' });
+            return;
+          }
+          const wristVisible = measured && measured.wrist != null;
+          const shoulderVisible = measured && measured.tilt != null;
+          const note = st === 'nobody' ? '몸이 안 보여요'
+            : focus === 'wrist' && !wristVisible ? '손목이 안 보여요'
+              : focus === 'shoulder' && !shoulderVisible ? '어깨가 안 보여요'
+                : '자세 보는 중';
+          setPoseNote(note);
+          if (note !== previousStatus) {
+            logEvent('pose_status', { status: note, wristVisible: !!wristVisible, shoulderVisible: !!shoulderVisible });
+            previousStatus = note;
+          }
+        },
         onIssue: (kind, m) => {
           const a = alerts.current;
           if (!liveRef.current || a.n >= th.maxPerPart || (a.last && performance.now() - a.last < th.cooldownMs)) return;
@@ -315,7 +350,7 @@ export default function Lesson({ s, update, target, go }) {
       });
     });
     return () => { dead = true; if (stop) stop(); };
-  }, [cam, mode]);
+  }, [cam, mode, live, poseAttempt]);
   // 정해진 시점: 연주 단계에 들어가고 5초 뒤 한 번 (파트당 1번)
   useEffect(() => {
     if (!live || cam !== 'on' || mode !== 'auto' || alerts.current.timed) return undefined;
@@ -324,10 +359,14 @@ export default function Lesson({ s, update, target, go }) {
   }, [live, cam, mode, idx]);
   // 진행자가 띄움: 평가 패널의 [지금 띄우기]
   useEffect(() => {
-    const h = () => setTimeout(() => fireRef.current(focus === 'all' ? 'wrist' : focus, 'manual'), 1200);
-    window.addEventListener('dinga-alert', h); return () => window.removeEventListener('dinga-alert', h);
+    let timer;
+    const h = () => { clearTimeout(timer); timer = setTimeout(() => fireRef.current(focus === 'all' ? 'wrist' : focus, 'manual'), 1200); };
+    window.addEventListener('dinga-alert', h);
+    return () => { clearTimeout(timer); window.removeEventListener('dinga-alert', h); };
   }, []);
-  const camNote = mode !== 'real' ? '내 모습' : poseState === 'ready' ? (seen ? '자세 보는 중' : '몸이 안 보여요') : poseState === 'fail' ? '판정 꺼짐' : '준비 중';
+  const camNote = mode !== 'real' ? '내 모습' : poseState === 'ready' ? poseNote : poseState === 'fail' ? '판정 꺼짐 · 다시 시도' : '준비 중';
+  const retryCamera = () => setCameraAttempt((value) => value + 1);
+  const retryPose = cam === 'on' && mode === 'real' && poseState === 'fail' ? () => setPoseAttempt((value) => value + 1) : undefined;
   useEffect(() => { logEvent('step', { lesson: target.lesson || 'transition', part: target.part, step: idx, kind: steps[idx].type }); }, [idx]);
 
   const finish = () => {
@@ -388,7 +427,7 @@ export default function Lesson({ s, update, target, go }) {
   const al = alertKind && (content.liveAlerts[alertKind] || content.liveAlerts.all);
   return (<>
     {idea && <video ref={eye} className="eye" playsInline muted />}
-    {live && <LiveCam stream={camStream} cam={cam} note={camNote} />}
+    {live && <LiveCam stream={camStream} cam={cam} note={camNote} retry={cam === 'denied' ? retryCamera : retryPose} />}
     {al && <div className="palert" role="status"><i>!</i><div><b>{al.title}</b><small>{al.text}</small></div></div>}
     <div className="screen" key={idx}>
       <div className="row">
