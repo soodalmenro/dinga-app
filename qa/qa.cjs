@@ -137,7 +137,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   // MY / 기록
   await p.locator('.iconbtn').first().click(); await p.locator('.sheet').getByRole('button', { name: '나가기', exact: true }).click(); await btn(p, 'MY').click(); await p.waitForTimeout(300); t = await txt(p);
   ok('MY: 출석 N일, 연습 시간 N분, 최근 7일, 기록 보기, 친구 샘플', /출석\s*1일/.test(t) && /연습 시간\s*\d+분/.test(t) && t.includes('최근 7일') && t.includes('기록 보기') && t.includes('샘플 데이터예요') && ['민지', '준호', '서연'].every((x) => t.includes(x)));
-  ok('MY: 최근 7일 기타 아이콘 7개, 오늘만 온전한 기타', await p.locator('.week svg').count() === 7 && await p.locator('.week svg.off').count() === 6);
+  ok('MY: 최근 7일 기타 아이콘 7개, 오늘만 온전한 기타', await p.locator('.week .guitar-icon').count() === 7 && await p.locator('.week .guitar-icon.off').count() === 6);
   await btn(p, '콕 찌르기').click(); await p.waitForTimeout(200);
   ok('콕 찌르기: 안내만 표시', (await txt(p)).includes('실제 알림은 가지 않아요'));
   await p.getByText('기록 보기').click(); await p.waitForTimeout(300); t = await txt(p);
@@ -210,7 +210,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('자세 알림 기본값 = 정해진 시점', (await st(p)).panel.alert === 'auto');
   await setSt(p, { attendances: [{ date: ds(-4), method: 'sound' }], panel: { speed: 3, alert: 'real' } }); t = await txt(p);
   ok('W2 4일째 방치: 지침 표정, 문구, 게이지 1칸', t.includes('기다리다 지쳤어요') && t.includes('4일째 못 만났어요') && await p.locator('.widget .gauge i.on').count() === 1 && (await p.locator('.widget img').getAttribute('src')).includes('exhausted'));
-  await setSt(p, { attendances: [{ date: ds(0), method: 'sound' }, { date: ds(-1), method: 'sound' }] }); t = await txt(p);
+  await setSt(p, { attendances: [{ date: ds(0), method: 'sound' }, { date: ds(-1), method: 'sound' }], history: { [ds(-1)]: 180 } }); t = await txt(p);
   ok('W1 오늘 연습함: 신남, 연속 2일째, 게이지 4칸', t.includes('오늘도 쳤어요!') && t.includes('연속 2일째') && await p.locator('.widget .gauge i.on').count() === 4);
   await p.locator('.apps button').click(); await p.waitForTimeout(2200);
   ok('딩가 아이콘으로도 열림', (await txt(p)).includes('출석완료'));
@@ -251,7 +251,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('파트 완료 뒤 작은 카메라 꺼짐', (await txt(p)).includes('파트 완료!') && await p.locator('.pip').count() === 0);
   await btn(p, '홈으로').click(); await p.waitForTimeout(300); await btn(p, 'MY').click(); await p.waitForTimeout(400); t = await txt(p);
   ok('C1 MY: 친구와 같은 곡 연습 카드 (주 단위 마감 없음)', ['친구와 같은 곡 연습', '코스 1 곡', '딩가의 첫 노래', '4명 중 2명 완료', '곡 연습하러 가기', '콕 찌르기'].every((x) => t.includes(x)) && !t.includes('일요일'), t.slice(0, 200));
-  ok('MY 최근 7일: 기타 아이콘 7개 (연습한 날 2개, 부서진 기타 5개)', await p.locator('.week svg').count() === 7 && await p.locator('.week svg.off').count() === 5);
+  ok('MY 최근 7일: 기타 아이콘 7개 (연습한 날 2개, 부서진 기타 5개)', await p.locator('.week .guitar-icon').count() === 7 && await p.locator('.week .guitar-icon.off').count() === 5);
   await panel(); await p.locator('.panel-row', { hasText: '곡 판정' }).locator('select').selectOption('allok'); await btn(p, '닫기').click(); await p.waitForTimeout(300);
   await btn(p, '곡 연습하러 가기').click(); await p.waitForTimeout(600); t = await txt(p);
   ok('19 곡 연습: 가사 · 코드 · 구간 · 템포 40% · 메트로놈 · 끝내기', ['딩가의 첫 노래', '인트로', '1절', '후렴', '오늘도', '가는 거야', '40% 템포', '메트로놈', '끝내기'].every((x) => t.includes(x)) && await p.locator('.sp-bar').count() === 12 && await p.locator('.tabbar').count() === 0, t.slice(0, 120));
@@ -316,6 +316,3 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   console.log(R.join('\n')); console.log(`\n${R.filter((x) => x.startsWith('PASS')).length} pass / ${R.filter((x) => x.startsWith('FAIL')).length} fail`);
   if (R.some((line) => line.startsWith('FAIL'))) process.exitCode = 1;
 })().catch((e) => { console.log(R.join('\n')); console.log('CRASH', e.message.slice(0, 500)); process.exit(1); });
-
-
-

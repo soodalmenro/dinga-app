@@ -2,6 +2,8 @@
 
 기타 연습 습관 앱 평가용 프로토타입. React + Vite. 서버와 로그인 없이 폰 브라우저에만 저장한다.
 
+[개발 전달본](docs/HANDOFF.md)에서 구현 범위, 판정 방식, 평가 설정과 마지막 실기 항목을 확인할 수 있다.
+
 ## 실행
 
 ```bash
@@ -104,6 +106,7 @@ node qa/practice-exceptions.cjs
 node qa/mobile-layout.cjs
 node qa/pose-reliability.cjs
 node qa/storage-recovery.cjs
+node qa/design-content.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.

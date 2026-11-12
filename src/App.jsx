@@ -4,6 +4,8 @@ import { Piki, TabBar, Modal, Sparkles, Confetti, imgSrc } from './ui.jsx';
 import Lesson from './Lesson.jsx';
 import { Song, Report } from './Song.jsx';
 import { SongPlay, SongReport } from './SongPlay.jsx';
+import guitarOn from './img/guitar-on.svg';
+import guitarOff from './img/guitar-off.svg';
 
 const TABS = ['home', 'learn', 'practice', 'my'];
 
@@ -71,7 +73,7 @@ function Home({ s, go }) {
     <div className="screen center">
       <span className="pill streak">{s.panel.variant === 'idea' ? <Guitar on={streak(s) > 0} /> : <i />}연속 {streak(s)}일</span>
       <div className="bubble fadeup" key={homeLine(s)}>{homeLine(s)}</div>
-      <div className="stage"><Piki name={first ? 'main' : m} size={m === 'melted' && !first ? 150 : 260} /></div>
+      <div className="stage"><Piki name={first ? 'main' : m} size={m === 'melted' && !first ? 150 : 300} /></div>
       <div className="gauge w100" aria-label={`기분 ${content.moodNames[m]}`}>{[0, 1, 2, 3].map((i) => <i key={i} className={i < moodGauge[m] ? 'on' : ''} />)}</div>
       {s.panel.variant === 'idea'
         ? <button className="btn" disabled={attended} onClick={start}>{attended ? '출석완료' : '출석하기'}</button>
@@ -312,11 +314,7 @@ function Practice({ s, go, update }) {
 
 // 최근 7일 표시: 연습한 날은 노란 기타, 안 한 날은 부서진 기타
 function Guitar({ on }) {
-  return on ? (
-    <svg viewBox="0 0 28 28" aria-label="연습함"><g transform="rotate(40 14 14)"><rect x="12.6" y="2" width="2.8" height="13" rx="1.2" fill="#C2620F" /><rect x="11.6" y="0.5" width="4.8" height="4" rx="1.4" fill="#302F46" /><ellipse cx="14" cy="16.5" rx="4.6" ry="4.2" fill="#FEC745" /><ellipse cx="14" cy="21.5" rx="6.2" ry="5.2" fill="#FEC745" /><circle cx="14" cy="18.6" r="1.9" fill="#302F46" /></g></svg>
-  ) : (
-    <svg viewBox="0 0 28 28" className="off" aria-label="안 함"><g transform="rotate(40 14 14)"><g transform="rotate(-28 14 9)"><rect x="12.6" y="0.5" width="2.8" height="8" rx="1.2" fill="#B9B0A3" /><rect x="11.6" y="-1" width="4.8" height="4" rx="1.4" fill="#857E8C" /></g><rect x="12.6" y="10.5" width="2.8" height="5" rx="1.2" fill="#B9B0A3" /><ellipse cx="14" cy="16.5" rx="4.6" ry="4.2" fill="#D8CFC0" /><ellipse cx="14" cy="21.5" rx="6.2" ry="5.2" fill="#D8CFC0" /><circle cx="14" cy="18.6" r="1.9" fill="#857E8C" /><path d="M8 20.5 L11 22 L10 24 L13.5 26.5" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" /></g></svg>
-  );
+  return <span className={`guitar-icon${on ? '' : ' off'}`} role="img" aria-label={on ? '연습함' : '안 함'}><img src={on ? guitarOn : guitarOff} alt="" /></span>;
 }
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 const wd = (str) => { const [y, m, d] = str.split('-').map(Number); return WD[new Date(y, m - 1, d).getDay()]; };
@@ -329,7 +327,7 @@ function My({ s, go, toast }) {
     <div className="screen">
       <div className="row" style={{ gap: 12 }}><div className="avatar" style={{ width: 64, height: 64 }}><Piki name="happy" size={52} still /></div><div><h1 style={{ fontSize: 22 }}>내 기록</h1><div className="sub" style={{ fontSize: 13 }}>연속 {streak(s)}일</div></div></div>
       <div className="row"><div className="card stat"><small>출석</small><b>{s.attendances.length}일</b></div><div className="card stat"><small>연습 시간</small><b>{totalMinutes(s)}분</b></div></div>
-      <div className="col" style={{ gap: 8 }}><b style={{ fontSize: 13 }}>최근 7일</b><div className="week">{days.map((d) => <div key={d}><Guitar on={!!attendedOn(s, d)} />{wd(d)}</div>)}</div></div>
+      <div className="col" style={{ gap: 8 }}><b style={{ fontSize: 13 }}>최근 7일</b><div className="week">{days.map((d) => <div key={d}><Guitar on={(s.history[d] || 0) >= 60} />{wd(d)}</div>)}</div></div>
       <button className="card row between tap" onClick={() => go('history')}><b style={{ fontSize: 15 }}>기록 보기</b><b style={{ color: 'var(--gray)', fontSize: 18 }}>›</b></button>
       {s.panel.variant === 'idea' ? <Challenge s={s} go={go} toast={toast} /> : (<>
       <div><b style={{ fontSize: 15 }}>친구와 같은 곡 연습</b><div className="sub" style={{ fontSize: 12 }}>샘플 데이터예요</div></div>
@@ -354,11 +352,12 @@ function History({ s, go }) {
       <b style={{ fontSize: 13, color: 'var(--gray)' }}>최근 7일</b>
       {days.map((d) => {
         const a = attendedOn(s, d); const min = Math.floor((s.history[d] || 0) / 60);
+        const active = !!a || min > 0;
         return (
-          <div key={d} className="card row" style={a ? { padding: '14px 16px' } : { padding: '14px 16px', background: 'var(--none)', boxShadow: 'none' }}>
-            {s.panel.variant === 'idea' ? <span className="week" style={{ display: 'block' }}><Guitar on={!!a} /></span> : <i style={{ width: 12, height: 12, borderRadius: 6, background: a ? 'var(--o)' : '#CFC6B8' }} />}
-            <b style={{ flex: 1, fontSize: 15, color: a ? 'var(--ink)' : 'var(--gray)' }}>{d.slice(5).replace('-', '/')} {wd(d)}</b>
-            {a ? <><span className={`pill ${a.method === 'sound' ? 'ok' : 'warn'}`}>{a.method === 'sound' ? '소리' : '수동'} 출석</span><b style={{ fontSize: 14 }}>{min}분</b></> : <span className="sub" style={{ fontSize: 13 }}>쉬었어요</span>}
+          <div key={d} className="card row" style={active ? { padding: '14px 16px' } : { padding: '14px 16px', background: 'var(--none)', boxShadow: 'none' }}>
+            {s.panel.variant === 'idea' ? <span className="week" style={{ display: 'block' }}><Guitar on={min > 0} /></span> : <i style={{ width: 12, height: 12, borderRadius: 6, background: active ? 'var(--o)' : '#CFC6B8' }} />}
+            <b style={{ flex: 1, fontSize: 15, color: active ? 'var(--ink)' : 'var(--gray)' }}>{d.slice(5).replace('-', '/')} {wd(d)}</b>
+            {active ? <>{a ? <span className={`pill ${a.method === 'sound' ? 'ok' : 'warn'}`}>{a.method === 'sound' ? '소리' : '수동'} 출석</span> : <span className="sub" style={{ fontSize: 12 }}>출석 안 함</span>}<b style={{ fontSize: 14 }}>{min}분</b></> : <span className="sub" style={{ fontSize: 13 }}>쉬었어요</span>}
           </div>
         );
       })}

@@ -94,7 +94,7 @@ export function Song({ s, update, go, params }) {
       {phase === 'wait' && micOn === false && <button className="btn" onClick={startManual}>시작하기</button>}
       <div className="card">
         <div className="row between"><b style={{ fontSize: 13 }}>템포</b><b style={{ fontSize: 13, color: 'var(--od)' }}>{tempo}% ({Math.round((content.songChart.bpm * tempo) / 100)} BPM)</b></div>
-        <input type="range" min="40" max="125" step="5" value={tempo} disabled={phase !== 'wait'} onChange={(e) => setTempo(Number(e.target.value))} />
+        <input className="tempo-slider" aria-label="연주 템포" type="range" min="40" max="125" step="5" value={tempo} style={{ '--tempo-fill': `${((tempo - 40) / 85) * 100}%` }} disabled={phase !== 'wait'} onChange={(e) => setTempo(Number(e.target.value))} />
         <div className="row between sub" style={{ fontSize: 11 }}><span>40%</span><span>{phase === 'wait' ? '시작 전에만 바꿀 수 있어요' : ''}</span><span>125%</span></div>
       </div>
       {exit && (

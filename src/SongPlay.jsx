@@ -19,9 +19,21 @@ export function SongPlay({ s, update, go, params }) {
   const [metro, setMetro] = useState(true);
   const [micOn, setMicOn] = useState(mic.state === 'on' ? true : null);
   const [quiet, setQuiet] = useState(false);
+  const scoreView = useRef(null);
   const el = useRef(0); const hits = useRef([]); const out = useRef([]); const chroma = useRef(new Array(12).fill(0)); const metroRef = useRef(true); metroRef.current = metro;
   const back = (params && params.back) || 'learn';
   const beatMs = 60000 / ((SP.bpm * tempo) / 100) / s.panel.speed;
+
+  useEffect(() => {
+    if (phase !== 'play') return;
+    const viewport = scoreView.current;
+    const current = viewport && viewport.querySelector('.sp-bar.now');
+    if (!current || !viewport.clientHeight) return;
+    const bounds = viewport.getBoundingClientRect();
+    const active = current.getBoundingClientRect();
+    if (active.top < bounds.top) viewport.scrollTop += active.top - bounds.top;
+    else if (active.bottom > bounds.bottom) viewport.scrollTop += active.bottom - bounds.bottom;
+  }, [bar, phase]);
 
   useEffect(() => { mic.start().then(setMicOn); }, []);
   useEffect(() => {
@@ -96,7 +108,7 @@ export function SongPlay({ s, update, go, params }) {
   return (
     <div className="screen sp">
       <div className="row"><Piki name="main" size={38} still /><h1 style={{ fontSize: 17, flex: 1 }}>{SP.title}{params && params.fromLesson ? ' · 완주' : ''}</h1><button className="iconbtn" onClick={() => setExit(true)}>✕</button></div>
-      <div className="sp-body">
+      <div className="sp-body" ref={scoreView}>
         <div className="sp-lines">
           {SP.sections.map((sec, si) => (
             <div key={sec.name} className="sp-sec">
@@ -117,7 +129,7 @@ export function SongPlay({ s, update, go, params }) {
       </div>
       <div className="sp-fb"><span className={`sp-ic${fbOk ? ' ok' : ''}`}>{fbOk ? '✓' : '♪'}</span><div style={{ flex: 1 }}><b>{fb[0]}</b><small>{fb[1]}</small></div><div className="sp-beat">{[0, 1, 2, 3].map((k) => <i key={k} className={phase === 'play' && k === beat ? 'on' : ''} />)}<small>{phase === 'wait' ? '' : `${beat + 1}박`}</small></div></div>
       <div>
-        <input type="range" min="40" max="125" step="5" value={tempo} disabled={phase !== 'wait'} onChange={(e) => setTempo(Number(e.target.value))} />
+        <input className="tempo-slider" aria-label="연주 템포" type="range" min="40" max="125" step="5" value={tempo} style={{ '--tempo-fill': `${((tempo - 40) / 85) * 100}%` }} disabled={phase !== 'wait'} onChange={(e) => setTempo(Number(e.target.value))} />
         <div className="row between" style={{ fontSize: 12, fontWeight: 700 }}><span style={{ color: 'var(--od)' }}>{tempo}% 템포</span><span style={{ opacity: 0.6 }}>{phase === 'wait' ? '시작 전에만 바꿀 수 있어요' : `${Math.round((SP.bpm * tempo) / 100)} BPM`}</span><span style={{ opacity: 0.6 }}>125%</span></div>
       </div>
       <div className="sp-ctl">
