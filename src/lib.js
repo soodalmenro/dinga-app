@@ -1,5 +1,6 @@
 // 저장(localStorage), 날짜, 마이크 소리 감지를 모아 둔 파일
 import content from './content.json';
+import { analyzeChord } from './chordRecognition.js';
 
 const KEY = 'dinga-v1';
 const empty = () => ({
@@ -38,13 +39,20 @@ function transitionResult(value) {
 
 function practiceResult(value) {
   if (!isRecord(value) || !Array.isArray(value.secs) || !isRecord(value.trans)) return null;
-  if (!value.secs.every((section) => isRecord(section) && typeof section.name === 'string' && ['good', 'late', 'check', 'retry', 'skip', 'unmeasured'].includes(section.state))) return null;
+  if (!value.secs.every((section) => isRecord(section) && typeof section.name === 'string' && ['good', 'late', 'check', 'retry', 'skip', 'unmeasured', 'uncertain'].includes(section.state))) return null;
+  if (value.coverage !== undefined) {
+    const coverage = value.coverage;
+    const total = content.songPractice.sections.reduce((sum, section) => sum + section.lines.flat().length, 0);
+    if (!isRecord(coverage) || !['played', 'total', 'evaluated', 'uncertain'].every((key) => Number.isInteger(coverage[key]) && coverage[key] >= 0)
+      || coverage.total !== total || coverage.played > total || coverage.evaluated + coverage.uncertain > coverage.played) return null;
+  }
   const validTransitions = Object.entries(value.trans).every(([key, pair]) => {
     const chords = key.split(' → ');
     const knownChords = chords.length === 2 && chords.every((chord) => Object.hasOwn(content.chordNotes, chord));
     return knownChords && isRecord(pair)
       && Number.isFinite(pair.n) && pair.n > 0
-      && Number.isFinite(pair.ok) && pair.ok >= 0 && pair.ok <= pair.n;
+      && Number.isFinite(pair.ok) && pair.ok >= 0 && pair.ok <= pair.n
+      && (pair.uncertain === undefined || (Number.isInteger(pair.uncertain) && pair.uncertain >= 0 && pair.ok + pair.uncertain <= pair.n));
   });
   if (!validTransitions) return null;
   return { ...value, score: percentage(value.score), chordAcc: percentage(value.chordAcc), beatAcc: percentage(value.beatAcc), tempo: reportTempo(value.tempo), back: reportBack(value.back) };
@@ -196,7 +204,8 @@ export const mic = {
         analyser.fftSize = 1024;
         buf = new Float32Array(analyser.fftSize);
         src.connect(analyser);
-        wide = ctx.createAnalyser(); wide.fftSize = 8192; wide.smoothingTimeConstant = 0.5; fbuf = new Float32Array(wide.frequencyBinCount); src.connect(wide);
+        // 48kHz에서도 반음 경계 밖으로 에너지가 흩어지는 양을 줄인다(약 2.93Hz/bin).
+        wide = ctx.createAnalyser(); wide.fftSize = 16384; wide.smoothingTimeConstant = 0.5; fbuf = new Float32Array(wide.frequencyBinCount); src.connect(wide);
         this.state = 'on';
         return true;
       } catch (e) {
@@ -245,10 +254,7 @@ export const mic = {
 export const threshold = () => content.soundThreshold.mid;
 // 음 구성이 Em · G · C 중 무엇에 가장 가까운지. 검증 전 기준이라 실제 기타로 맞춰야 한다
 export function guessChord(ch) {
-  const total = ch.reduce((a, b) => a + b, 0); if (!total) return null;
-  let best = null; let top = -1;
-  Object.entries(content.chordNotes).forEach(([name, notes]) => { const v = notes.reduce((a, n) => a + ch[n], 0) / total; if (v > top) { top = v; best = name; } });
-  return best;
+  return analyzeChord(ch, content.chordNotes).chord;
 }
 
 // 소리가 "시작된 순간"을 알려 주는 감지기. 조용했다가 기준값을 넘으면 onHit 호출

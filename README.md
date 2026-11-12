@@ -108,10 +108,16 @@ node qa/pose-reliability.cjs
 node qa/storage-recovery.cjs
 node qa/design-content.cjs
 node qa/quality-review.cjs
+node qa/chord-replay.cjs
+node qa/chord-summary.cjs
+node qa/chord-audio.cjs
+node qa/chord-browser.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.
 
 권한 대기·중단·재시도·점수 신뢰성에 관한 발견과 수정, 검증의 한계는 [품질 재검토](docs/QUALITY_REVIEW.md)에 정리했다.
+
+불명확한 소리의 판정 보류, FFT 해상도, 합성 입력 반복 검증은 [코드 판정 보강](docs/CHORD_RELIABILITY.md)에 정리했다. 합성 검사 통과는 실제 기타 인식률을 의미하지 않는다.
 
 배포 뒤 `node qa/deployed-smoke.cjs`로 운영 번들과 로컬 `dist`의 일치, 위젯→곡→리포트 경로를 확인할 수 있다. 먼저 `npm run build`를 실행한다. 새 브라우저 세션의 모의 입력을 사용하며 `QA_URL`로 대상 주소를 바꿀 수 있다.

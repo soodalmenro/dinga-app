@@ -1,0 +1,20 @@
+[
+  {"id":"clear-em","bins":{"4":1,"7":1,"11":1},"expected":"Em"},
+  {"id":"clear-g","bins":{"2":1,"7":1,"11":1},"expected":"G"},
+  {"id":"clear-c","bins":{"0":1,"4":1,"7":1},"expected":"C"},
+  {"id":"weighted-em","bins":{"4":2,"7":1,"11":1},"expected":"Em"},
+  {"id":"c-with-small-interference","bins":{"0":1,"4":1,"7":1,"6":0.15},"expected":"C"},
+  {"id":"silence","bins":{},"expected":null},
+  {"id":"shared-em-g","bins":{"7":1,"11":1},"expected":null},
+  {"id":"shared-em-c","bins":{"4":1,"7":1},"expected":null},
+  {"id":"single-c","bins":{"0":1},"expected":null},
+  {"id":"single-d","bins":{"2":1},"expected":null},
+  {"id":"single-e","bins":{"4":1},"expected":null},
+  {"id":"single-f","bins":{"5":1},"expected":null},
+  {"id":"single-b","bins":{"11":1},"expected":null},
+  {"id":"uniform-noise","bins":{"0":1,"1":1,"2":1,"3":1,"4":1,"5":1,"6":1,"7":1,"8":1,"9":1,"10":1,"11":1},"expected":null},
+  {"id":"competing-em-g","bins":{"2":1,"4":1,"7":1,"11":1},"expected":null},
+  {"id":"weak-third-tone","bins":{"4":0.495,"7":0.495,"11":0.01},"expected":null},
+  {"id":"unsupported-f-major","bins":{"0":1,"5":1,"9":1},"expected":null},
+  {"id":"strong-off-chord-noise","bins":{"4":1,"7":1,"11":1,"6":2},"expected":null}
+]

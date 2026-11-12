@@ -1,0 +1,43 @@
+const assert = require('node:assert/strict');
+(async () => {
+  const { createServer } = await import('vite');
+  const server = await createServer({ server: { middlewareMode: true } });
+  try {
+    const { summarizeSong } = await server.ssrLoadModule('/src/SongPlay.jsx');
+    const uncertain = summarizeSong(Array.from({ length: 12 }, () => ({ t: 'ok', c: null })));
+    assert.equal(uncertain.beatAcc, 100);
+    assert.equal(uncertain.chordAcc, null);
+    assert.equal(uncertain.score, null);
+    assert.equal(uncertain.scored, false);
+    assert.equal(uncertain.coverage.uncertain, 12);
+    assert.equal(uncertain.coverage.evaluated, 0);
+    assert.ok(uncertain.secs.every((section) => section.state === 'uncertain'));
+    assert.ok(Object.values(uncertain.trans).every((pair) => pair.uncertain === pair.n && pair.chord === 0 && pair.late === 0));
+    const mixed = summarizeSong([{ t: 'ok', c: null }, ...Array.from({ length: 11 }, () => ({ t: 'ok', c: true }))]);
+    assert.equal(mixed.score, null);
+    assert.equal(mixed.coverage.evaluated, 11);
+    assert.equal(mixed.coverage.played, 12);
+    assert.equal(mixed.coverage.total, 12);
+    assert.equal(mixed.secs[0].state, 'uncertain');
+    const wrong = summarizeSong(Array.from({ length: 12 }, () => ({ t: 'ok', c: false })));
+    assert.equal(wrong.score, 50);
+    assert.ok(wrong.secs.every((section) => section.state === 'check'));
+    const silent = summarizeSong(Array.from({ length: 12 }, () => ({ t: 'none', c: false })));
+    assert.equal(silent.score, 0);
+    assert.equal(silent.coverage.uncertain, 0);
+    const absent = summarizeSong(Array.from({ length: 12 }, () => ({ t: 'unmeasured', c: null })));
+    assert.equal(absent.beatAcc, null);
+    assert.equal(absent.coverage.uncertain, 0);
+    assert.equal(absent.coverage.evaluated, 0);
+    const partial = summarizeSong([{ t: 'ok', c: true }]);
+    assert.equal(partial.coverage.played, 1);
+    assert.equal(partial.coverage.evaluated, 1);
+    assert.equal(partial.secs[0].played, 1);
+    assert.equal(partial.secs[0].total, 4);
+    assert.ok(partial.secs.slice(1).every((section) => section.state === 'skip'));
+    const empty = summarizeSong([]);
+    assert.equal(empty.score, null);
+    assert.equal(empty.beatAcc, null);
+    console.log('PASS uncertain, mixed, wrong, silent, absent, partial and empty score summaries');
+  } finally { await server.close(); }
+})().catch((error) => { console.error(error); process.exitCode = 1; });

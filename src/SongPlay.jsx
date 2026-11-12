@@ -1,6 +1,7 @@
 // 곡 연습(가사 위에 코드가 흐르는 화면)과 곡 연습 리포트
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { content, mic, makeOnsetDetector, guessChord, threshold, today, sfx, logEvent } from './lib.js';
+import { content, mic, makeOnsetDetector, threshold, today, sfx, logEvent } from './lib.js';
+import { analyzeChord } from './chordRecognition.js';
 import { Piki, Modal, Confetti } from './ui.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
@@ -13,35 +14,40 @@ const PAIR = (a, b) => (['Em', 'G', 'C'].indexOf(a) < ['Em', 'G', 'C'].indexOf(b
 
 export function summarizeSong(list) {
   const played = list.length;
-  const scored = list.every((result) => result.t !== 'unmeasured');
+  const measured = played > 0 && list.every((result) => result.t !== 'unmeasured');
+  const isUncertain = (result) => result.t !== 'unmeasured' && result.t !== 'none' && result.c === null;
+  const uncertain = list.filter(isUncertain).length;
+  const coverage = { played, total: BARS.length, evaluated: list.filter((result) => result.t !== 'unmeasured' && result.c !== null).length, uncertain };
   const okBeat = list.filter((r) => r.t === 'ok').length; const okChord = list.filter((r) => r.c).length;
-  const beatAcc = scored ? pct(okBeat, played) : null;
-  const chordAcc = scored ? pct(okChord, played) : null;
+  const beatAcc = measured ? pct(okBeat, played) : null;
+  const chordAcc = measured && !uncertain ? pct(okChord, played) : null;
   const secs = SP.sections.map((sec, si) => {
     const results = list.filter((_, i) => BARS[i].si === si);
     const good = results.filter((result) => result.t === 'ok' && result.c).length;
     let state = 'retry';
     if (!results.length) state = 'skip';
-    else if (!scored) state = 'unmeasured';
+    else if (results.some((result) => result.t === 'unmeasured')) state = 'unmeasured';
+    else if (results.some(isUncertain)) state = 'uncertain';
     else if (good / results.length >= 0.75) state = 'good';
     else if (results.some((result) => result.t === 'late')) state = 'late';
     else if (results.some((result) => result.t !== 'none' && !result.c)) state = 'check';
-    return { name: sec.name, state };
+    return { name: sec.name, state, played: results.length, total: BARS.filter((bar) => bar.si === si).length };
   });
   const trans = {};
   list.forEach((result, i) => {
-    if (!scored || i === 0 || BARS[i].chord === BARS[i - 1].chord) return;
+    if (!measured || i === 0 || BARS[i].chord === BARS[i - 1].chord) return;
     const key = `${BARS[i - 1].chord} → ${BARS[i].chord}`;
-    const pair = trans[key] || { ok: 0, n: 0, late: 0, missed: 0, chord: 0 };
+    const pair = trans[key] || { ok: 0, n: 0, late: 0, missed: 0, chord: 0, uncertain: 0 };
     pair.n += 1;
+    trans[key] = pair;
+    if (isUncertain(result)) { pair.uncertain += 1; return; }
     if (result.t === 'ok' && result.c) pair.ok += 1;
     if (result.t === 'late') pair.late += 1;
     if (result.t === 'none') pair.missed += 1;
     if (result.t !== 'none' && !result.c) pair.chord += 1;
-    trans[key] = pair;
   });
-  const score = scored ? Math.round((beatAcc + chordAcc) / 2) : null;
-  return { played, scored, score, beatAcc, chordAcc, secs, trans };
+  const score = beatAcc !== null && chordAcc !== null ? Math.round((beatAcc + chordAcc) / 2) : null;
+  return { played, scored: score !== null, score, beatAcc, chordAcc, secs, trans, coverage };
 }
 
 export function SongPlay({ s, update, go, params }) {
@@ -86,19 +92,19 @@ export function SongPlay({ s, update, go, params }) {
   }, [phase, micOn, suspended, s.panel.judge]);
 
   const finish = (list) => {
-    const { played, scored, score, beatAcc, chordAcc, secs, trans } = summarizeSong(list);
+    const { played, scored, score, beatAcc, chordAcc, secs, trans, coverage } = summarizeSong(list);
     update((d) => {
       const t = today(d); const first = !(d.challenge && d.challenge.done); const complete = played === BARS.length;
       if (complete && d.panel.variant === 'idea') { d.challenge = { done: true }; if (first) logEvent('challenge_done', {}); }
       d.songPractice = {
-        last: { score, beatAcc, chordAcc, tempo, secs, trans, complete, judge: judgeMode, fromLesson: !!(params && params.fromLesson), firstComplete: complete && !d.songPractice.count, challengeFirst: complete && first, date: t, back },
+        last: { score, beatAcc, chordAcc, tempo, secs, trans, coverage, bars: list, complete, judge: judgeMode, fromLesson: !!(params && params.fromLesson), firstComplete: complete && !d.songPractice.count, challengeFirst: complete && first, date: t, back },
         count: d.songPractice.count + (complete ? 1 : 0),
         best: complete && scored && judgeMode === 'mic' ? Math.max(d.songPractice.best, score) : d.songPractice.best,
       };
       if (complete && params && params.fromLesson) { d.done.song[2] = true; d.resume = null; }
       d.history[t] = (d.history[t] || 0) + Math.round((played * 4 * 60) / ((SP.bpm * tempo) / 100));
     });
-    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, judge: judgeMode });
+    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode });
     sfx.done(); go('songreport', { back });
   };
 
@@ -115,9 +121,9 @@ export function SongPlay({ s, update, go, params }) {
       if (!micOn) return { t: 'unmeasured', c: null };
       const a = i * 4 * beatMs; const b = a + 4 * beatMs;
       const inBar = hits.current.filter((t) => t >= a - beatMs * 0.25 && t < b - beatMs * 0.25);
-      const g = guessChord(chroma.current); chroma.current = new Array(12).fill(0);
+      const decision = analyzeChord(chroma.current, content.chordNotes); chroma.current = new Array(12).fill(0);
       if (!inBar.length) return { t: 'none', c: false };
-      return { t: inBar[0] - a > beatMs * 0.6 ? 'late' : 'ok', c: g === BARS[i].chord };
+      return { t: inBar[0] - a > beatMs * 0.6 ? 'late' : 'ok', c: decision.chord === null ? null : decision.chord === BARS[i].chord, detectedChord: decision.chord, reason: decision.reason, classifier: decision.version };
     };
     const id = setInterval(() => {
       const now = performance.now();
@@ -142,9 +148,10 @@ export function SongPlay({ s, update, go, params }) {
     : !micOn && judgeMode === 'mic' ? ['마이크 없이 연습 중이에요', '가사 위의 코드를 따라 쳐요']
     : !lastRes ? ['잘 따라오고 있어요', '가사 위의 코드를 쳐요']
       : lastRes.t === 'none' ? ['소리가 안 들렸어요', '조금 더 세게 쳐 볼까요?']
+        : lastRes.c === null ? ['코드를 판단하기 어려워요', '폰 위치와 주변 소음을 확인해요']
         : lastRes.t === 'late' ? [`${lastBar.chord} 코드가 조금 늦었어요`, '한 박 먼저 손을 옮겨 봐요']
           : lastRes.c ? [`${lastBar.chord} 코드 정확해요!`, '박자도 딱 맞았어요'] : ['박자가 딱 맞았어요', `${lastBar.chord} 소리가 조금 달라요`];
-  const fbOk = lastRes && lastRes.t === 'ok';
+  const fbOk = lastRes && lastRes.t === 'ok' && lastRes.c === true;
   let n = -1;
   return (
     <div className="screen sp">
@@ -157,8 +164,8 @@ export function SongPlay({ s, update, go, params }) {
               {sec.lines.map((line, li) => (
                 <div key={li} className="sp-line">
                   {line.map(([chord, lyric]) => { n += 1; const i = n; const r = res[i]; const now = phase !== 'wait' && i === bar && !r; return (
-                    <div key={i} className={`sp-bar${now ? ' now' : ''}${r ? ` ${r.t}` : ''}${phase !== 'wait' && i > bar ? ' later' : ''}`}>
-                      <b>{chord}{r && r.t === 'ok' ? ' ✓' : ''}{r && r.t === 'late' ? <small>늦음</small> : null}</b>
+                    <div key={i} className={`sp-bar${now ? ' now' : ''}${r ? ` ${r.t !== 'unmeasured' && r.c === null ? 'uncertain' : r.t === 'ok' && !r.c ? 'check' : r.t}` : ''}${phase !== 'wait' && i > bar ? ' later' : ''}`}>
+                      <b>{chord}{r && r.t === 'ok' && r.c === true ? ' ✓' : ''}{r && r.t !== 'unmeasured' && r.c === null ? <small>판정 어려움</small> : r && r.t === 'late' ? <small>늦음</small> : r && r.t === 'ok' && !r.c ? <small>코드 확인</small> : null}</b>
                       {lyric ? <span>{lyric}</span> : null}
                     </div>); })}
                 </div>
@@ -194,7 +201,7 @@ export function SongPlay({ s, update, go, params }) {
   );
 }
 
-const SEC = { unmeasured: ['측정 안 됨', ''], good: ['잘 쳤어요', 'ok'], late: ['조금 늦어요', 'late'], check: ['코드 확인', 'late'], retry: ['다시 해봐요', 'none'], skip: ['안 쳤어요', 'none'] };
+const SEC = { uncertain: ['판정 어려움', ''], unmeasured: ['측정 안 됨', ''], good: ['잘 쳤어요', 'ok'], late: ['조금 늦어요', 'late'], check: ['코드 확인', 'late'], retry: ['다시 해봐요', 'none'], skip: ['안 쳤어요', 'none'] };
 export function SongReport({ s, go, params }) {
   const last = s.songPractice.last;
   if (!last) return <div className="screen center"><div className="grow sub">아직 곡 연습 기록이 없어요</div><button className="btn" onClick={() => go('learn')}>학습으로</button></div>;
@@ -202,7 +209,9 @@ export function SongReport({ s, go, params }) {
   const scored = last.score != null;
   const stars = [60, 75, 90].filter((v) => last.score >= v).length;
   const tr = Object.entries(last.trans);
-  const weak = tr.filter(([, v]) => v.ok < v.n).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n)[0];
+  const evaluated = (pair) => pair.n - (pair.uncertain || 0);
+  const weak = tr.filter(([, v]) => evaluated(v) > 0 && v.ok < evaluated(v)).sort((a, b) => a[1].ok / evaluated(a[1]) - b[1].ok / evaluated(b[1]))[0];
+  const uncertain = s.songPractice.last.coverage?.uncertain || 0;
   const simulated = last.judge && last.judge !== 'mic';
   const advice = weak && (weak[1].late > 0 ? '코드 전환이 조금 늦었어요.' : weak[1].missed > 0 ? '소리가 잘 들리지 않은 전환이에요.' : weak[1].chord > 0 ? '코드 소리를 한 번 더 확인해 볼까요?' : '한 번 더 연습해 볼까요?');
   const practice = () => { const [a, b] = weak[0].split(' → '); go('song', { pair: PAIR(a, b), back: 'songreport', key: Date.now() }); };
@@ -211,15 +220,17 @@ export function SongReport({ s, go, params }) {
       {last.firstComplete && <Confetti />}
       <div className="row between"><div><h1 style={{ fontSize: 20 }}>곡 연습 리포트</h1><div className="sub" style={{ fontSize: 12 }}>{SP.title} · {last.tempo}% 템포</div></div><button className="iconbtn" aria-label="리포트 닫기" onClick={() => go(back)}>✕</button></div>
       {simulated && <div className="card soft sub">모의 판정 결과예요. 최고 점수는 실제 마이크로 완주한 결과를 기록해요.</div>}
-      {!simulated && scored && <div className="sub">코드 판정은 마이크로 추정한 참고 결과예요.</div>}
+      {!simulated && (scored || uncertain > 0) && <div className="sub">코드 판정은 마이크로 추정한 참고 결과예요.</div>}
+      {last.coverage && <div className="sub">연주 {last.coverage.played}/{last.coverage.total}마디 · 코드 평가 {last.coverage.evaluated}마디{uncertain > 0 ? ` · 판정 어려움 ${uncertain}마디` : ''}</div>}
+      {uncertain > 0 && <div className="card soft sub">판정하기 어려운 마디가 있어 코드 정확도와 종합 점수는 보류했어요. 오답으로 계산하지 않으며 최고 기록도 바꾸지 않아요.</div>}
       <div className="card row" style={{ background: 'var(--y)', boxShadow: 'none', gap: 12 }}>
         <Piki name="clap" size={64} still />
         <div style={{ flex: 1 }}><h2 style={{ fontSize: 18 }}>{!last.complete ? '여기까지 쳤어요' : last.firstComplete ? '첫 곡 완주!' : '완주!'}</h2>{scored && <div style={{ fontSize: 18, letterSpacing: 2 }}>{[0, 1, 2].map((i) => (i < stars ? '★' : '☆')).join('')}</div>}</div>
-        <div className="tc"><b style={{ fontSize: scored ? 34 : 16, lineHeight: 1 }}>{scored ? last.score : '측정 안 됨'}</b><div style={{ fontSize: 12, fontWeight: 700 }}>종합 점수</div></div>
+        <div className="tc"><b style={{ fontSize: scored ? 34 : 16, lineHeight: 1 }}>{scored ? last.score : uncertain ? '판정 보류' : '측정 안 됨'}</b><div style={{ fontSize: 12, fontWeight: 700 }}>종합 점수</div></div>
       </div>
-      <div className="row">{[['코드 정확도', scored ? `${last.chordAcc}%` : '측정 안 됨'], ['박자 정확도', scored ? `${last.beatAcc}%` : '측정 안 됨'], ['연주 템포', `${last.tempo}%`]].map(([k, v]) => <div key={k} className="card stat" style={{ padding: 12 }}><small>{k}</small><b style={{ fontSize: v === '측정 안 됨' ? 13 : 22 }}>{v}</b></div>)}</div>
+      <div className="row">{[['코드 정확도', last.chordAcc != null ? `${last.chordAcc}%` : uncertain ? '판정 보류' : '측정 안 됨'], ['박자 정확도', last.beatAcc != null ? `${last.beatAcc}%` : '측정 안 됨'], ['연주 템포', `${last.tempo}%`]].map(([k, v]) => <div key={k} className="card stat" style={{ padding: 12 }}><small>{k}</small><b style={{ fontSize: v.endsWith('%') ? 22 : 13 }}>{v}</b></div>)}</div>
       <div className="card col" style={{ gap: 8 }}><b style={{ fontSize: 14 }}>구간별 결과</b><div className="row">{last.secs.map((x) => <div key={x.name} className={`bar ${SEC[x.state][1]}`} style={{ flex: 1, height: 56 }}><b style={{ fontSize: 14 }}>{x.name}</b><small>{SEC[x.state][0]}</small></div>)}</div></div>
-      {tr.length > 0 && <div className="card col" style={{ gap: 8 }}><b style={{ fontSize: 14 }}>코드 전환</b>{tr.map(([k, v]) => <div key={k} className="row" style={{ gap: 10 }}><b style={{ fontSize: 14, width: 64 }}>{k}</b><div className="sp-meter"><i style={{ width: `${pct(v.ok, v.n)}%`, background: v.ok / v.n >= 0.75 ? 'var(--ok)' : 'var(--o)' }} /></div><b style={{ fontSize: 12, color: v.ok / v.n >= 0.75 ? 'var(--ok)' : 'var(--od)' }}>{v.ok}/{v.n}</b></div>)}</div>}
+      {tr.length > 0 && <div className="card col" style={{ gap: 8 }}><b style={{ fontSize: 14 }}>코드 전환</b>{tr.map(([k, v]) => <div key={k} className="row" style={{ gap: 10 }}><b style={{ fontSize: 14, width: 64 }}>{k}</b><div className="sp-meter"><i style={{ width: `${pct(v.ok, evaluated(v))}%`, background: v.ok / evaluated(v) >= 0.75 ? 'var(--ok)' : 'var(--o)' }} /></div><b style={{ fontSize: 12, color: 'var(--od)' }}>{evaluated(v) ? `${v.ok}/${evaluated(v)}` : '판정 보류'}{v.uncertain > 0 && <small style={{ display: 'block' }}>보류 {v.uncertain}회</small>}</b></div>)}</div>}
       {weak && <div className="card soft row" style={{ gap: 10 }}><Piki name="hi" size={40} still /><div><b style={{ fontSize: 13 }}>{weak[0]} · {advice} 전환 연습을 한 번 더 해볼까요?</b><button className="cap" style={{ display: 'block', marginTop: 6, fontSize: 13 }} onClick={practice}>전환 연습하러 가기 ›</button></div></div>}
       {last.challengeFirst && (
         <div className="card row between fadeup" style={{ background: 'var(--okbg)', boxShadow: 'none', padding: '12px 16px' }}>
