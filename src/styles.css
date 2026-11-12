@@ -1,6 +1,6 @@
 :root {
-  --y: #fec745; --yd: #e3a51c; --o: #ff9a3d; --od: #c2620f; --ot: #e07a1f;
-  --sy: #ffe7b3; --sb: #fff1d6; --bg: #fff9ee; --ink: #302f46; --gray: #857e8c;
+  --y: #fec745; --yd: #e3a51c; --o: #ff9a3d; --od: #a64d12; --ot: #a64d12;
+  --sy: #ffe7b3; --sb: #fff1d6; --bg: #fff9ee; --ink: #302f46; --gray: #716979;
   --line: #f1e7d6; --none: #efeae2; --ok: #1e9e5a; --okbg: #e3f8ea; --warn: #b86a00; --warnbg: #fff0d9;
   --peachbg: #feeedc; --shadow: 0 8px 24px rgba(190, 128, 38, 0.14);
 }
@@ -74,7 +74,7 @@ h2 { font-size: 18px; margin: 0; line-height: 1.4; }
 
 /* 하단 탭: 선택된 탭만 알약 모양으로 아이콘+이름을 보여 준다 */
 .tabbar { display: flex; gap: 6px; padding: 8px; margin: 0 16px calc(12px + env(safe-area-inset-bottom)); background: #fff; border-radius: 26px; box-shadow: 0 0 0 2px var(--line) inset, var(--shadow); flex-shrink: 0; }
-.tabbar button { flex: 1; height: 48px; border-radius: 18px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #b5aea3; font-size: 13px; font-weight: 800; transition: background 0.15s, flex 0.2s; }
+.tabbar button { flex: 1; height: 48px; border-radius: 18px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--gray); font-size: 13px; font-weight: 800; transition: background 0.15s, flex 0.2s; }
 .tabbar button.on { flex: 1.8; background: var(--y); color: var(--ink); }
 .tabbar button span { display: none; }
 .tabbar button.on span { display: inline; }
@@ -227,3 +227,4 @@ input[type='range'] { width: 100%; accent-color: var(--o); height: 28px; }
 .tempo-slider::-moz-range-track { height: 8px; border-radius: 4px; background: linear-gradient(to right, var(--y) var(--tempo-fill), var(--sy) var(--tempo-fill)); }
 .tempo-slider::-moz-range-thumb { width: 22px; height: 22px; border: 4px solid var(--y); border-radius: 50%; background: #fff; }
 .tempo-slider:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: 8px; }
+.sp-ctl button:disabled { opacity: 0.5; cursor: default; }

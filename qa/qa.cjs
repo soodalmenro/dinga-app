@@ -43,7 +43,9 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('파트 첫 단계 = 자세 확인, Em 중심 항목 손목', t.includes('자세 확인') && t.includes('이번 레슨에서 볼 곳: 손목'));
   ok('자세: 사진 저장 안 함 안내', t.includes('사진은 저장하지 않아요'));
   ok('레슨: 하단 탭 숨김', await p.locator('.tabbar').count() === 0);
-  ok('카메라 미리보기 켜짐', await p.evaluate(() => { const v = document.querySelector('video'); return !!(v && v.srcObject); }));
+  // 기기 시작 시간은 고정 900ms로 보장되지 않는다. 실제 영상 프레임 준비까지 기다린다.
+  await p.waitForFunction(() => { const v = document.querySelector('.cam video'); return !!(v && v.srcObject && v.readyState >= 2 && v.videoWidth > 0); }, null, { timeout: 10000 });
+  ok('카메라 미리보기 켜짐(실제 프레임 준비)', await p.evaluate(() => { const v = document.querySelector('.cam video'); return !!(v && v.srcObject && v.readyState >= 2 && v.videoWidth > 0); }));
   await btn(p, '촬영 (3초 뒤)').click(); await p.waitForTimeout(200);
   ok('촬영: 3초 카운트 표시', await p.locator('.cam .count').count() === 1);
   await p.waitForFunction(() => document.body.innerText.includes('연습 시작'), null, { timeout: 5000 });
@@ -302,7 +304,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await btn(p, '완료').click(); await p.waitForTimeout(300);
   ok('[완료] → 연습 탭', await p.locator('.seg button').count() === 3);
   await p.locator('.seg button', { hasText: '곡 연습' }).click(); await p.waitForTimeout(200); t = await txt(p);
-  ok('11-2 곡 연습 탭: 열린 곡 [연주하기] + 최고 점수, 잠긴 코스', t.includes('딩가의 첫 노래') && t.includes('최고 100점') && t.includes('연주하기') && t.includes('코스 2를 마치면 열려요'), t.slice(0, 200));
+  ok('11-2 곡 연습 탭: 열린 곡 [연주하기], 모의 점수는 최고 기록 제외, 잠긴 코스', t.includes('딩가의 첫 노래') && !t.includes('최고 100점') && t.includes('연주하기') && t.includes('코스 2를 마치면 열려요'), t.slice(0, 200));
   await btn(p, '연주하기').click(); await p.waitForTimeout(500);
   ok('연습 탭 [연주하기] → 19 곡 연습', await p.locator('.sp-bar').count() === 12);
   await p.locator('.sp .iconbtn').click(); await btn(p, '나가기').click(); await p.waitForTimeout(1600);

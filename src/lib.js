@@ -38,7 +38,7 @@ function transitionResult(value) {
 
 function practiceResult(value) {
   if (!isRecord(value) || !Array.isArray(value.secs) || !isRecord(value.trans)) return null;
-  if (!value.secs.every((section) => isRecord(section) && typeof section.name === 'string' && ['good', 'late', 'retry', 'skip', 'unmeasured'].includes(section.state))) return null;
+  if (!value.secs.every((section) => isRecord(section) && typeof section.name === 'string' && ['good', 'late', 'check', 'retry', 'skip', 'unmeasured'].includes(section.state))) return null;
   const validTransitions = Object.entries(value.trans).every(([key, pair]) => {
     const chords = key.split(' → ');
     const knownChords = chords.length === 2 && chords.every((chord) => Object.hasOwn(content.chordNotes, chord));

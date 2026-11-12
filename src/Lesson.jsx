@@ -6,17 +6,19 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor } from './lib.js';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture } from './pose.js';
+import { useMicrophone } from './useMicrophone.js';
+import { usePracticePause } from './usePracticePause.js';
 
 const PART_SECONDS = 180; // 파트 하나 약 3분
 const TRANSITION_SECONDS = 120; // 전환 연습 약 2분
 
 // 소리가 난 횟수를 센다
-function useHits(active) {
+function useHits(active, micOn) {
   const [n, setN] = useState(0);
   useEffect(() => {
-    if (!active || mic.state !== 'on') return undefined;
+    if (!active || !micOn || mic.state !== 'on') return undefined;
     return makeOnsetDetector(() => setN((v) => v + 1));
-  }, [active]);
+  }, [active, micOn]);
   return n;
 }
 // 박자 타이머: 4박 카운트(음수) 뒤 0부터 beat가 올라간다
@@ -24,16 +26,17 @@ function useBeat(bpm, speed, running) {
   const [beat, setBeat] = useState(-4);
   useEffect(() => {
     if (!running) return undefined;
-    const id = setInterval(() => setBeat((b) => b + 1), 60000 / (bpm * speed));
+    const id = setInterval(() => { if (!document.hidden) setBeat((b) => b + 1); }, 60000 / (bpm * speed));
     return () => clearInterval(id);
   }, [bpm, speed, running]);
   return [beat, setBeat];
 }
 
-function Posture({ lesson, s, update, next, speed }) {
+function Posture({ lesson, s, update, next, speed, running }) {
   const [phase, setPhase] = useState('pre'); // pre | count | result | denied
   const [count, setCount] = useState(3);
   const [shot, setShot] = useState(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const [res, setRes] = useState(null);
   const video = useRef(null);
   const stream = useRef(null);
@@ -43,18 +46,26 @@ function Posture({ lesson, s, update, next, speed }) {
   const stop = () => { openRequest.current += 1; if (stream.current) stream.current.getTracks().forEach((t) => t.stop()); stream.current = null; };
   const open = async () => {
     stop();
+    setPhase('pre');
+    setCameraReady(false);
     const request = openRequest.current;
     try {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
       if (request !== openRequest.current) { st.getTracks().forEach((track) => track.stop()); return; }
       stream.current = st;
-      if (video.current) { video.current.srcObject = st; video.current.play().catch(() => {}); }
+      setCameraReady(true);
       setPhase('pre');
     } catch (e) { if (request === openRequest.current) { logEvent('camera_denied'); setPhase('denied'); } }
   };
   useEffect(() => { open(); return stop; }, []);
   useEffect(() => {
-    if (phase !== 'count') return undefined;
+    if (phase === 'pre' && cameraReady && video.current && stream.current) {
+      video.current.srcObject = stream.current;
+      video.current.play().catch(() => {});
+    }
+  }, [phase, cameraReady]);
+  useEffect(() => {
+    if (phase !== 'count' || !running) return undefined;
     if (count === 0) {
       const v = video.current; let url = null;
       try { const c = document.createElement('canvas'); c.width = v.videoWidth || 480; c.height = v.videoHeight || 640; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); url = c.toDataURL('image/jpeg', 0.7); } catch (e) {}
@@ -70,7 +81,7 @@ function Posture({ lesson, s, update, next, speed }) {
     }
     const id = setTimeout(() => setCount((c) => c - 1), 1000 / speed);
     return () => clearTimeout(id);
-  }, [phase, count]);
+  }, [phase, count, running]);
   const setItem = (k, v) => { const r = { ...res, [k]: v }; setRes(r); update((d) => { d.posture = { date: today(d), ...r }; }); };
 
   if (phase === 'denied') {
@@ -106,12 +117,13 @@ function Posture({ lesson, s, update, next, speed }) {
     <div><div className="cap">자세 확인</div><h2>{tip.title}</h2></div>
     <div className="cam">
       <video ref={video} playsInline muted />
+      {!cameraReady && <div className="msg">카메라를 준비하고 있어요…</div>}
       <div className="guide" />
       {phase === 'count' && <div className="count">{count}</div>}
     </div>
     <div className="card soft"><div className="cap">이번 레슨에서 볼 곳: {tip.name}</div><div className="sub">사진은 저장하지 않아요</div></div>
     {phase === 'pre'
-      ? <><button className="btn" onClick={() => { setCount(3); setPhase('count'); }}>촬영 (3초 뒤)</button><button className="textbtn" onClick={() => { logEvent('posture_skip'); stop(); next(); }}>건너뛰기</button></>
+      ? <><button className="btn" disabled={!cameraReady} onClick={() => { setCount(3); setPhase('count'); }}>촬영 (3초 뒤)</button><button className="textbtn" onClick={() => { logEvent('posture_skip'); stop(); next(); }}>건너뛰기</button></>
       : <button className="btn line" onClick={() => setPhase('pre')}>취소</button>}
   </>);
 }
@@ -147,30 +159,31 @@ function HitDots({ n, need = 4 }) {
   return <div className="dots">{Array.from({ length: need }, (_, i) => <i key={i} className={i < n ? 'on' : ''}>{i < n ? '✓' : ''}</i>)}</div>;
 }
 
-function Play({ step, chord, next, micOn }) {
-  const n = useHits(true);
-  const ok = !micOn || n >= 4;
+function Play({ step, chord, next, micOn, running }) {
+  const n = useHits(running, micOn);
+  const ok = micOn === false || n >= 4;
   return (<>
     <div><div className="cap">소리 내기</div><div className="big">{step.showChord ? chord : '튕겨 보기'}</div></div>
     {step.showChord && <div className="chordbox"><Chord name={chord} scale={0.62} /></div>}
     <h2>{step.text}</h2>
     <HitDots n={n} />
-    {!micOn && <div className="sub tc">마이크 없이 진행 중이에요. 쳐 본 뒤 다음을 눌러요.</div>}
+    {micOn === null && <div className="sub tc">마이크를 준비하고 있어요…</div>}
+    {micOn === false && <div className="sub tc">마이크 없이 진행 중이에요. 쳐 본 뒤 다음을 눌러요.</div>}
     <div className="grow"><Piki name={n > 0 ? 'yay' : 'listen'} size={150} /></div>
     <NextBar ok={ok} micOn={micOn} next={next} />
   </>);
 }
 
-function Beat({ chord, next, micOn, speed }) {
+function Beat({ chord, next, micOn, speed, running }) {
   const [bpm, setBpm] = useState(50);
-  const [beat, setBeat] = useBeat(bpm, speed, true);
+  const [fin, setFin] = useState(false);
+  const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin);
   const [hits, setHits] = useState({});
   const beatRef = useRef(beat); beatRef.current = beat;
-  const [fin, setFin] = useState(false);
   useEffect(() => {
-    if (mic.state !== 'on') return undefined;
+    if (!running || !micOn || mic.state !== 'on') return undefined;
     return makeOnsetDetector(() => { if (beatRef.current >= 0) setHits((h) => ({ ...h, [beatRef.current]: true })); });
-  }, []);
+  }, [running, micOn]);
   useEffect(() => {
     if (beat >= 8 && bpm === 50) { setBpm(60); setBeat(-4); setHits({}); }
     if (beat >= 8 && bpm === 60) setFin(true);
@@ -182,13 +195,13 @@ function Beat({ chord, next, micOn, speed }) {
     <div className="dots beat">{[0, 1, 2, 3].map((i) => { const b = bar * 4 + i; const now = !fin && beat >= 0 && beat % 4 === i; return <i key={i} className={hits[b] && beat >= 0 ? 'hit' : now ? 'now' : ''}>{i + 1}</i>; })}</div>
     <div className="sub tc">{fin ? '잘했어요! 두 템포를 모두 마쳤어요' : beat < 0 ? `준비… ${-beat}` : `${bar + 1} / 2 마디`}</div>
     <div className="grow"><Piki name="yay" size={170} /></div>
-    <NextBar ok={fin} micOn next={next} okText="두 템포를 모두 마쳤어요" />
+    <NextBar ok={fin} micOn={micOn} next={next} okText="두 템포를 모두 마쳤어요" />
     {!fin && <div className="sub tc" style={{ fontSize: 12 }}>두 템포를 마치면 넘어갈 수 있어요</div>}
   </>);
 }
 
-function Blind({ chord, next, micOn }) {
-  const n = useHits(true);
+function Blind({ chord, next, micOn, running }) {
+  const n = useHits(running, micOn);
   const [hint, setHint] = useState(false);
   useEffect(() => { if (!hint) return undefined; const id = setTimeout(() => setHint(false), 3000); return () => clearTimeout(id); }, [hint]);
   return (<>
@@ -199,12 +212,13 @@ function Blind({ chord, next, micOn }) {
     <HitDots n={n} />
     <div className="grow"><Piki name="listen" size={130} /></div>
     {!(micOn && n >= 4) && <button className="btn line" onClick={() => setHint(true)}>힌트 보기 (3초)</button>}
-    <NextBar ok={!micOn || n >= 4} micOn={micOn} next={next} okText="안 보고도 쳤어요!" />
+    {micOn === null && <div className="sub tc">마이크를 준비하고 있어요…</div>}
+    <NextBar ok={micOn === false || n >= 4} micOn={micOn} next={next} okText="안 보고도 쳤어요!" />
   </>);
 }
 
-export function Transition({ pair, next, speed, setBarProgress }) {
-  const [beat] = useBeat(50, speed, true);
+export function Transition({ pair, next, speed, setBarProgress, running }) {
+  const [beat] = useBeat(50, speed, running);
   const bar = Math.floor(Math.max(beat, 0) / 4);
   const cur = Math.floor(bar / 2) % 2;
   useEffect(() => { if (setBarProgress) setBarProgress(Math.min(bar, 8)); if (bar >= 8) next(); }, [bar]);
@@ -249,21 +263,32 @@ export default function Lesson({ s, update, target, go }) {
   const [exit, setExit] = useState(false);
   const [stuck, setStuck] = useState(false);
   const [done, setDone] = useState(false);
-  const [micOn, setMicOn] = useState(mic.state === 'on');
+  const background = usePracticePause(!done);
+  const microphone = useMicrophone();
+  const { micOn, skipMic } = microphone;
   const [tbar, setTbar] = useState(0);
   const start = useRef(Date.now());
+  const pausedTime = useRef(0);
+  const pausedAt = useRef(null);
+  const suspended = exit || stuck || background.paused;
   const speed = s.panel.speed;
-  const elapsed = () => Math.floor(((Date.now() - start.current) / 1000) * speed);
+  const elapsed = () => Math.floor((((pausedAt.current ?? Date.now()) - start.current - pausedTime.current) / 1000) * speed);
+  useEffect(() => {
+    if (suspended) pausedAt.current = background.pausedAt.current ?? Date.now();
+    else if (pausedAt.current != null) {
+      pausedTime.current += Date.now() - pausedAt.current;
+      pausedAt.current = null;
+    }
+  }, [suspended]);
   const step = steps[idx];
   const chord = step.chord || (lesson ? lesson.chord : null);
   const back = target.back || 'learn';
 
-  useEffect(() => { mic.start().then(setMicOn); }, []);
   // 파트가 곡 연주로 바로 시작하면(레슨 4 · 파트 3, 자세 촬영이 없는 구성) 곧장 곡 화면으로 간다
   useEffect(() => { if (steps[idx].type === 'song') go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() }); }, []);
 
   // ---------- 연주 중 자세 알림 (P1) ----------
-  const live = idea && !done && LIVE.includes(step.type);
+  const live = idea && !done && !background.paused && LIVE.includes(step.type);
   const focus = lesson ? lesson.postureFocus : 'all';
   const camStream = useRef(null);
   const eye = useRef(null); // 판정용 영상(화면에는 안 보임)
@@ -275,7 +300,7 @@ export default function Lesson({ s, update, target, go }) {
   const [alertKind, setAlertKind] = useState(null);
   const alerts = useRef({ n: 0, last: 0, timed: false });
   const alertTimer = useRef(null);
-  const liveRef = useRef(live); liveRef.current = live;
+  const liveRef = useRef(live); liveRef.current = live && !suspended;
   const mode = s.panel.alert; // auto 정해진 시점(기본, 11/11 팀 결정) | real 실제 판정 | manual 진행자가 띄움 | off
   const fire = (kind, how, value) => {
     if (!liveRef.current) return;
@@ -313,7 +338,7 @@ export default function Lesson({ s, update, target, go }) {
   }, [live, cameraAttempt]);
   // 실제 판정: 자세가 기준을 넘은 채 이어지면 알림
   useEffect(() => {
-    if (!live || cam !== 'on' || mode !== 'real') return undefined;
+    if (!live || suspended || cam !== 'on' || mode !== 'real') return undefined;
     let stop = null; let dead = false;
     setPoseState('loading');
     initPose().then((ok) => {
@@ -350,13 +375,13 @@ export default function Lesson({ s, update, target, go }) {
       });
     });
     return () => { dead = true; if (stop) stop(); };
-  }, [cam, mode, live, poseAttempt]);
+  }, [cam, mode, live, poseAttempt, suspended]);
   // 정해진 시점: 연주 단계에 들어가고 5초 뒤 한 번 (파트당 1번)
   useEffect(() => {
-    if (!live || cam !== 'on' || mode !== 'auto' || alerts.current.timed) return undefined;
+    if (!live || suspended || cam !== 'on' || mode !== 'auto' || alerts.current.timed) return undefined;
     const id = setTimeout(() => { alerts.current.timed = true; fireRef.current(focus === 'all' ? 'wrist' : focus, 'timed'); }, 5000 / speed);
     return () => clearTimeout(id);
-  }, [live, cam, mode, idx]);
+  }, [live, cam, mode, idx, suspended]);
   // 진행자가 띄움: 평가 패널의 [지금 띄우기]
   useEffect(() => {
     let timer;
@@ -423,7 +448,7 @@ export default function Lesson({ s, update, target, go }) {
   if (step.type === 'song') return <div className="screen center"><div className="grow sub">곡을 준비하고 있어요…</div></div>;
   const total = step.type === 'transition' ? 8 : steps.length;
   const now = step.type === 'transition' ? tbar : idx + 1;
-  const props = { step, lesson, chord, next, micOn, speed, s, update };
+  const props = { step, lesson, chord, next, micOn, speed, s, update, running: !suspended };
   const al = alertKind && (content.liveAlerts[alertKind] || content.liveAlerts.all);
   return (<>
     {idea && <video ref={eye} className="eye" playsInline muted />}
@@ -442,8 +467,9 @@ export default function Lesson({ s, update, target, go }) {
       {step.type === 'play' && <Play {...props} />}
       {step.type === 'beat' && <Beat key={idx} {...props} />}
       {step.type === 'blind' && <Blind {...props} />}
-      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} params={{ pair: step.pair, onDone: next }} />}
-      {step.type === 'transition' && !idea && <Transition pair={step.pair} next={next} speed={speed} setBarProgress={setTbar} />}
+      {micOn === null && <button className="textbtn" onClick={skipMic}>마이크 없이 계속하기</button>}
+      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} params={{ pair: step.pair, onDone: next }} />}
+      {step.type === 'transition' && !idea && <Transition pair={step.pair} next={next} speed={speed} setBarProgress={setTbar} running={!suspended} />}
       {exit && (
         <Modal onClose={() => setExit(false)}>
           <div className="col" style={{ alignItems: 'center', gap: 10 }}>
@@ -462,6 +488,7 @@ export default function Lesson({ s, update, target, go }) {
           <button className="btn line" onClick={() => { logEvent('skip', { kind: step.type }); setStuck(false); next(); }}>이 단계 건너뛰기</button>
         </Modal>
       )}
+      {background.paused && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 단계부터 이어서 연습해요.</div><button className="btn" onClick={background.resume}>계속 연습하기</button></Modal>}
     </div>
   </>);
 }

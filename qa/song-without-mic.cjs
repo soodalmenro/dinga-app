@@ -34,7 +34,7 @@ async function check(browser, url, judge) {
     assert.equal(last.score, judge === 'mic' ? null : 100);
     assert.equal(last.beatAcc, last.score);
     assert.equal(last.chordAcc, last.score);
-    assert.equal(best, judge === 'mic' ? 81 : 100);
+    assert.equal(best, 81); // 무측정·모의 완주는 실제 마이크 최고 기록을 갱신하지 않는다.
     assert.equal(last.complete, true);
     assert.equal(count, 3);
     assert.equal(state.challenge.done, true);

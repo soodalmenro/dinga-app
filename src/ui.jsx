@@ -102,9 +102,46 @@ export function Chord({ name, highlight = -1, upTo = 99, scale = 1 }) {
 }
 
 export function Modal({ children, bottom, onClose }) {
+  const dialog = useRef(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  const titleId = React.useId();
+  useEffect(() => {
+    const node = dialog.current;
+    const previous = document.activeElement;
+    const heading = node.querySelector('h1, h2');
+    if (heading) {
+      heading.id = heading.id || titleId;
+      node.setAttribute('aria-labelledby', heading.id);
+    } else node.setAttribute('aria-label', '안내');
+    node.focus({ preventScroll: true });
+    const onKey = (event) => {
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      if (dialogs[dialogs.length - 1] !== node) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (close.current) close.current();
+      }
+      if (event.key !== 'Tab') return;
+      const controls = [...node.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+        .filter((control) => control.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (!first) { event.preventDefault(); node.focus(); }
+      else if (document.activeElement === node) { event.preventDefault(); (event.shiftKey ? last : first).focus(); }
+      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('keydown', onKey, true);
+      if (previous && previous.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [titleId]);
   return (
     <div className={`modal${bottom ? ' bottom' : ''}`} onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>{children}</div>
+      <div className="sheet" role="dialog" aria-modal="true" tabIndex={-1} ref={dialog} onClick={(e) => e.stopPropagation()}>{children}</div>
     </div>
   );
 }

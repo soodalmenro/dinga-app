@@ -6,6 +6,7 @@ import { Song, Report } from './Song.jsx';
 import { SongPlay, SongReport } from './SongPlay.jsx';
 import guitarOn from './img/guitar-on.svg';
 import guitarOff from './img/guitar-off.svg';
+import { useMicrophone } from './useMicrophone.js';
 
 const TABS = ['home', 'learn', 'practice', 'my'];
 
@@ -86,23 +87,32 @@ function Home({ s, go }) {
 }
 
 function Attend({ s, update, go }) {
+  const { micOn, skipMic } = useMicrophone();
   const [phase, setPhase] = useState('ask'); // ask | listen | fail | denied | done
   const [acc, setAcc] = useState(0); // 소리가 난 시간(초)
   const [round, setRound] = useState(0);
   const finish = useCallback((method) => {
+    if (method === 'manual') skipMic();
     update((d) => { const t = today(d); if (!attendedOn(d, t)) d.attendances.push({ date: t, method }); });
     logEvent('attend', { method });
     setPhase('done'); sfx.done();
-  }, [update]);
-  useEffect(() => { mic.start().then((ok) => { if (!ok) logEvent('mic_denied', { where: 'attend' }); setPhase(ok ? 'listen' : 'denied'); }); }, []);
+  }, [update, skipMic]);
+  useEffect(() => {
+    if (phase !== 'ask' || micOn === null) return;
+    if (!micOn) logEvent('mic_denied', { where: 'attend' });
+    setPhase(micOn ? 'listen' : 'denied');
+  }, [micOn, phase]);
   useEffect(() => {
     if (phase !== 'listen') return undefined;
-    let raf = 0; let last = performance.now(); let sum = 0; const t0 = last; const th = threshold();
+    let raf = 0; let last = performance.now(); let sum = 0; let observedMs = 0; const th = threshold();
     const loop = (now) => {
-      const dt = (now - last) / 1000; last = now;
+      const delta = now - last; last = now;
+      if (document.hidden || delta > 250) { raf = requestAnimationFrame(loop); return; }
+      observedMs += delta;
+      const dt = delta / 1000;
       if (mic.level() > th) { sum += dt; setAcc(sum); }
       if (sum >= 2) { finish('sound'); return; }
-      if (now - t0 > 10000) { logEvent('attend_fail', { heard: Number(sum.toFixed(1)) }); setPhase('fail'); return; }
+      if (observedMs > 10000) { logEvent('attend_fail', { heard: Number(sum.toFixed(1)) }); setPhase('fail'); return; }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -128,7 +138,7 @@ function Attend({ s, update, go }) {
   const p = Math.min(1, acc / 2); const R = 58; const C = 2 * Math.PI * R;
   return (
     <div className="screen center">
-      <div className="row w100"><button className="iconbtn" onClick={() => go('home')}>✕</button></div>
+      <div className="row w100"><button className="iconbtn" aria-label="출석 화면 닫기" onClick={() => go('home')}>✕</button></div>
       <div className="tc">
         <h1>{phase === 'denied' ? '마이크를 쓸 수 없어요' : phase === 'fail' ? '소리가 잘 안 들려요' : '기타를 한 번 튕겨 주세요'}</h1>
         <div className="sub" style={{ marginTop: 6 }}>{phase === 'denied' ? '버튼으로 출석할 수 있어요' : phase === 'fail' ? '폰 가까이에서 한 번 더 튕겨 볼까요?' : '아는 코드나 편한 줄을 튕겨도 괜찮아요'}</div>
@@ -143,7 +153,7 @@ function Attend({ s, update, go }) {
         <b style={{ fontSize: 14, color: 'var(--od)' }}>{acc > 0 ? `듣고 있어요 · ${acc.toFixed(1)}초 / 2초` : '듣고 있어요'}</b>
         <button className="btn line" onClick={() => finish('manual')}>마이크 없이 출석하기</button>
       </>)}
-      {phase === 'ask' && <div className="sub">마이크를 준비하고 있어요…</div>}
+      {phase === 'ask' && <><div className="sub">마이크를 준비하고 있어요…</div><button className="btn line" onClick={() => finish('manual')}>마이크 없이 출석하기</button></>}
       {phase === 'fail' && (<>
         <button className="btn" onClick={() => { setAcc(0); setRound((r) => r + 1); setPhase('listen'); }}>다시 하기</button>
         <button className="btn line" onClick={() => finish('manual')}>건너뛰기</button>
@@ -196,7 +206,7 @@ function Course({ s, go, params }) {
   }
   return (
     <div className="screen">
-      <div className="row"><button className="iconbtn" onClick={() => setView('list')}>‹</button><h1 style={{ fontSize: 20 }}>코스 1</h1></div>
+      <div className="row"><button className="iconbtn" aria-label="코스 목록으로" onClick={() => setView('list')}>‹</button><h1 style={{ fontSize: 20 }}>코스 1</h1></div>
       <div className="chapter">{top}</div>
       {LS.map((l, i) => {
         const d = s.done[l.id]; const resume = s.resume && s.resume.lesson === l.id; const lk = locked(l);
@@ -212,7 +222,7 @@ function Course({ s, go, params }) {
       {allDone && <div className="card soft tc" style={{ fontSize: 13, fontWeight: 700 }}>코스 완료! 곡은 연습 탭 [곡 연습]에서 다시 칠 수 있어요</div>}
       {L && (
         <Modal onClose={() => setOpen(null)}>
-          <div className="row between"><h1 style={{ fontSize: 20 }}>{L.weekLabel}</h1><button className="iconbtn" onClick={() => setOpen(null)}>✕</button></div>
+          <div className="row between"><h1 style={{ fontSize: 20 }}>{L.weekLabel}</h1><button className="iconbtn" aria-label="레슨 선택 닫기" onClick={() => setOpen(null)}>✕</button></div>
           <div className="sub" style={{ fontSize: 13 }}>하고 싶은 파트를 골라요</div>
           {L.parts.map((p, i) => {
             const done = s.done[L.id][i]; const resume = s.resume && s.resume.lesson === L.id && s.resume.part === i;
@@ -259,7 +269,7 @@ function Learn({ s, go, params }) {
       <div className="card tc" style={{ background: 'var(--none)', boxShadow: 'none', color: 'var(--gray)', fontWeight: 800, fontSize: 14 }}>{week ? '다음 주 곡 · 월요일에 열려요' : '챕터 2 · 곧 열려요'}</div>
       {L && (
         <Modal onClose={() => setOpen(null)}>
-          <div className="row between"><h1 style={{ fontSize: 20 }}>{name(L, content.lessons.indexOf(L))}</h1><button className="iconbtn" onClick={() => setOpen(null)}>✕</button></div>
+          <div className="row between"><h1 style={{ fontSize: 20 }}>{name(L, content.lessons.indexOf(L))}</h1><button className="iconbtn" aria-label="레슨 선택 닫기" onClick={() => setOpen(null)}>✕</button></div>
           <div className="sub" style={{ fontSize: 13 }}>하고 싶은 파트를 골라요</div>
           {L.parts.map((p, i) => {
             const done = s.done[L.id][i]; const resume = s.resume && s.resume.lesson === L.id && s.resume.part === i;
@@ -348,7 +358,7 @@ function History({ s, go }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(t, -i));
   return (
     <div className="screen">
-      <div className="row"><button className="iconbtn" onClick={() => go('my')}>‹</button><h1 style={{ fontSize: 22 }}>기록</h1></div>
+      <div className="row"><button className="iconbtn" aria-label="MY로 돌아가기" onClick={() => go('my')}>‹</button><h1 style={{ fontSize: 22 }}>기록</h1></div>
       <b style={{ fontSize: 13, color: 'var(--gray)' }}>최근 7일</b>
       {days.map((d) => {
         const a = attendedOn(s, d); const min = Math.floor((s.history[d] || 0) / 60);
