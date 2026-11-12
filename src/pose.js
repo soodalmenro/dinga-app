@@ -2,6 +2,7 @@
 // 보는 것: 코드 잡는 손의 손목 꺾임, 어깨 기울기·올라감. 엄지는 카메라로 가려져서 판정하지 않는다.
 // 기준값은 content.json poseThresholds. 검증된 수치가 아니라 시작값이므로 실제 폰과 기타로 맞춰야 한다.
 import content from './content.json';
+import { cameraFraming } from './cameraFraming.js';
 
 const BASE = `${import.meta.env.BASE_URL}pose/`;
 let pose = null; let loading = null; let handler = null; let sending = null;
@@ -84,16 +85,16 @@ export function judge(m, th = content.poseThresholds) {
 }
 
 // 영상에서 자세를 계속 본다. 같은 문제가 holdMs 동안 이어지면 onIssue를 부른다
-export function watchPosture(video, { onIssue, onStatus }) {
+export function watchPosture(video, { onIssue, onStatus, focus = 'all' }) {
   const th = content.poseThresholds;
   let stopped = false; let timer; let errors = 0; const since = { wrist: null, shoulder: null };
   const receive = (r) => {
     if (stopped) return;
     const lm = r.poseLandmarks; const now = performance.now();
-    if (!lm) { since.wrist = null; since.shoulder = null; onStatus('nobody'); return; }
+    if (!lm) { since.wrist = null; since.shoulder = null; onStatus('nobody', null, cameraFraming(lm, th.hand, focus)); return; }
     const m = measure(lm, th.hand, video.videoWidth || 480, video.videoHeight || 640);
     const bad = judge(m, th);
-    onStatus(m.wrist == null && m.tilt == null ? 'nobody' : 'seen', m);
+    onStatus(m.wrist == null && m.tilt == null ? 'nobody' : 'seen', m, cameraFraming(lm, th.hand, focus));
     ['wrist', 'shoulder'].forEach((k) => {
       if (!bad.includes(k)) { since[k] = null; return; }
       if (since[k] == null) since[k] = now;

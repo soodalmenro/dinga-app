@@ -295,6 +295,7 @@ export default function Lesson({ s, update, target, go }) {
   const [cam, setCam] = useState('off'); // off | on | denied
   const [poseState, setPoseState] = useState('off'); // off | loading | ready | fail
   const [poseNote, setPoseNote] = useState('몸이 안 보여요');
+  const [framing, setFraming] = useState(null);
   const [cameraAttempt, setCameraAttempt] = useState(0);
   const [poseAttempt, setPoseAttempt] = useState(0);
   const [alertKind, setAlertKind] = useState(null);
@@ -349,7 +350,8 @@ export default function Lesson({ s, update, target, go }) {
       const th = content.poseThresholds;
       let previousStatus;
       stop = watchPosture(eye.current, {
-        onStatus: (st, measured) => {
+        focus: ['wrist', 'shoulder'].includes(focus) ? focus : 'all',
+        onStatus: (st, measured, guidance) => {
           if (st === 'error') {
             setPoseState('fail');
             logEvent('pose_fail', { where: 'tracking' });
@@ -362,6 +364,7 @@ export default function Lesson({ s, update, target, go }) {
               : focus === 'shoulder' && !shoulderVisible ? '어깨가 안 보여요'
                 : '자세 보는 중';
           setPoseNote(note);
+          setFraming(guidance);
           if (note !== previousStatus) {
             logEvent('pose_status', { status: note, wristVisible: !!wristVisible, shoulderVisible: !!shoulderVisible });
             previousStatus = note;
@@ -461,6 +464,7 @@ export default function Lesson({ s, update, target, go }) {
         {step.type !== 'posture' && <button className="textbtn" onClick={() => { logEvent('stuck', { kind: step.type }); setStuck(true); }}>막혔어요</button>}
       </div>
       {live && cam === 'denied' && <div className="sub" style={{ fontSize: 12 }}>카메라를 쓸 수 없어 자세 알림 없이 연습해요</div>}
+      {live && mode === 'real' && poseState === 'ready' && framing && !framing.ready && <div className="sub" style={{ fontSize: 12 }} role="status">{framing.instruction}</div>}
       {step.type === 'posture' && <Posture {...props} />}
       {step.type === 'card' && <Card {...props} />}
       {step.type === 'diagram' && <Diagram {...props} />}

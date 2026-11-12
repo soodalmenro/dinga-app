@@ -1,6 +1,9 @@
 // 저장(localStorage), 날짜, 마이크 소리 감지를 모아 둔 파일
 import content from './content.json';
 import { analyzeChord } from './chordRecognition.js';
+import { createInputProfiles, inputDeviceKey } from './inputCalibration.js';
+const inputProfiles = createInputProfiles();
+let activeDeviceId = null;
 
 const KEY = 'dinga-v1';
 const empty = () => ({
@@ -94,6 +97,7 @@ export function save(s) {
   try { localStorage.setItem(KEY, JSON.stringify(s)); return true; } catch (e) { return false; }
 }
 export function resetAll() {
+  inputProfiles.clear();
   try { localStorage.removeItem(KEY); } catch (e) {}
   return empty();
 }
@@ -197,6 +201,7 @@ export const mic = {
           return false;
         }
         stream = acquired;
+        activeDeviceId = inputDeviceKey(acquired.getAudioTracks?.()[0]?.getSettings?.());
         ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'suspended') ctx.resume().catch(() => {});
         const src = ctx.createMediaStreamSource(stream);
@@ -248,10 +253,14 @@ export const mic = {
     micRequest = null;
     if (stream) stream.getTracks().forEach((t) => t.stop());
     if (ctx) ctx.close().catch(() => {});
-    stream = null; ctx = null; analyser = null; wide = null; this.state = 'idle';
+    stream = null; ctx = null; analyser = null; wide = null; activeDeviceId = null; this.state = 'idle';
   },
 };
-export const threshold = () => content.soundThreshold.mid;
+export const clearInputCalibration = () => inputProfiles.clear();
+export const applyInputCalibration = (result) => mic.state === 'on' && inputProfiles.apply(result, { deviceId: activeDeviceId, generation: micGeneration });
+export const threshold = () => mic.state === 'on'
+  ? inputProfiles.threshold(content.soundThreshold.mid, { deviceId: activeDeviceId, generation: micGeneration })
+  : content.soundThreshold.mid;
 // 음 구성이 Em · G · C 중 무엇에 가장 가까운지. 검증 전 기준이라 실제 기타로 맞춰야 한다
 export function guessChord(ch) {
   return analyzeChord(ch, content.chordNotes).chord;
@@ -260,9 +269,9 @@ export function guessChord(ch) {
 // 소리가 "시작된 순간"을 알려 주는 감지기. 조용했다가 기준값을 넘으면 onHit 호출
 export function makeOnsetDetector(onHit) {
   let armed = true; let raf = 0; let stopped = false;
-  const th = threshold();
   const loop = () => {
     if (stopped) return;
+    const th = threshold();
     const l = mic.level();
     if (armed && l > th) { armed = false; onHit(performance.now(), l); }
     if (!armed && l < th * 0.5) armed = true;

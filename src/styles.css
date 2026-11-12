@@ -230,3 +230,9 @@ input[type='range'] { width: 100%; accent-color: var(--o); height: 28px; }
 .sp-ctl button:disabled { opacity: 0.5; cursor: default; }
 .sp-bar.uncertain b { color: var(--gray); }
 .sp-bar.check b { color: var(--od); }
+.setup > section { flex-shrink: 0; }
+.setup h3 { font-size: 16px; margin: 8px 0; line-height: 1.5; }
+.setup p { margin: 8px 0; }
+.setup-camera { position: relative; height: 220px; border-radius: 16px; background: var(--ink); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.setup-camera video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+.setup-camera span { position: absolute; padding: 12px; color: #fff; font-size: 13px; text-align: center; }

@@ -7,6 +7,7 @@ import { SongPlay, SongReport } from './SongPlay.jsx';
 import guitarOn from './img/guitar-on.svg';
 import guitarOff from './img/guitar-off.svg';
 import { useMicrophone } from './useMicrophone.js';
+import PracticeSetup from './PracticeSetup.jsx';
 
 const TABS = ['home', 'learn', 'practice', 'my'];
 
@@ -82,6 +83,7 @@ function Home({ s, go }) {
       {s.panel.variant === 'idea' && attended && (
         <button className="cap" style={{ minHeight: 44, fontSize: 14 }} onClick={start}>이어서 연습하기 ›</button>
       )}
+      <button className="textbtn" onClick={() => go('setup')}>연습 환경 확인</button>
     </div>
   );
 }
@@ -104,13 +106,13 @@ function Attend({ s, update, go }) {
   }, [micOn, phase]);
   useEffect(() => {
     if (phase !== 'listen') return undefined;
-    let raf = 0; let last = performance.now(); let sum = 0; let observedMs = 0; const th = threshold();
+    let raf = 0; let last = performance.now(); let sum = 0; let observedMs = 0;
     const loop = (now) => {
       const delta = now - last; last = now;
       if (document.hidden || delta > 250) { raf = requestAnimationFrame(loop); return; }
       observedMs += delta;
       const dt = delta / 1000;
-      if (mic.level() > th) { sum += dt; setAcc(sum); }
+      if (mic.level() > threshold()) { sum += dt; setAcc(sum); }
       if (sum >= 2) { finish('sound'); return; }
       if (observedMs > 10000) { logEvent('attend_fail', { heard: Number(sum.toFixed(1)) }); setPhase('fail'); return; }
       raf = requestAnimationFrame(loop);
@@ -442,7 +444,7 @@ export default function App() {
   useEffect(() => {
     const practicing = ['attend', 'lesson', 'song', 'songplay'].includes(nav.route);
     keepAwake(practicing);
-    if (!practicing) mic.stop();
+    if (!practicing && nav.route !== 'setup') mic.stop();
   }, [nav.route]);
   useEffect(() => { logEvent('open'); }, []);
   const toast = (m) => { setToastMsg(m); setTimeout(() => setToastMsg(null), 3000); };
@@ -466,6 +468,7 @@ export default function App() {
       {route === 'phone' && <Phone s={s} open={openApp} />}
       {route === 'home' && <Home {...p} />}
       {route === 'attend' && <Attend {...p} />}
+      {route === 'setup' && <PracticeSetup go={go} />}
       {route === 'learn' && <Learn {...p} params={params} />}
       {route === 'lesson' && <Lesson key={params.key} {...p} target={params} />}
       {route === 'song' && <Song key={params.key} {...p} params={params} />}
