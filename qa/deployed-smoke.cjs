@@ -5,7 +5,7 @@ const { chromium } = require('playwright');
 (async () => {
   const browser = await chromium.launch({ channel: process.env.QA_BROWSER_CHANNEL });
   try {
-    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.addInitScript(() => {
@@ -38,7 +38,18 @@ const { chromium } = require('playwright');
     assert.equal(result.last.judge, 'allok');
     assert.equal(result.last.score, 100);
     assert.equal(result.best, 0);
+    for (let i = 0; i < 3; i += 1) await page.mouse.click(375, 18);
+    await page.getByRole('heading', { name: '평가 패널', exact: true }).waitFor();
+    const fileEvent = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'JSON 저장', exact: true }).click();
+    const file = JSON.parse(fs.readFileSync(await (await fileEvent).path(), 'utf8'));
+    assert.equal(file.app.bundle, expected);
+    assert.equal(file.summary.unversionedEvents, 0);
+    const end = file.events.filter((event) => event.type === 'songplay_end').at(-1);
+    assert.equal(end.diagnostics.length, 12);
+    assert.ok(end.diagnostics.every((verdict) => verdict.reason === 'simulated'));
+    assert.ok(file.events.every((event) => event.bundle === expected));
     assert.deepEqual(errors, []);
-    console.log('PASS deployed bundle matches local build; optional setup/permission fallback and widget → song → report');
+    console.log('PASS deployed bundle, setup fallback, song/report, participant JSON and versioned diagnostics');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

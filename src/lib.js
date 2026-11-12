@@ -2,6 +2,7 @@
 import content from './content.json';
 import { analyzeChord } from './chordRecognition.js';
 import { createInputProfiles, inputDeviceKey } from './inputCalibration.js';
+import { LOG_LIMIT, currentEvaluationBundle } from './evaluationExport.js';
 const inputProfiles = createInputProfiles();
 let activeDeviceId = null;
 
@@ -286,26 +287,30 @@ export function makeOnsetDetector(onHit) {
 const LOG_KEY = 'dinga-log';
 let pid = '';
 let volatileLog = null;
+let logReadFailed = false;
 export const setPid = (v) => { pid = v || ''; };
+export const getLogStorageMode = () => volatileLog !== null ? 'memory' : logReadFailed ? 'unavailable' : 'local';
 export function getLog() {
   if (volatileLog) return volatileLog;
   try {
     const value = JSON.parse(localStorage.getItem(LOG_KEY));
+    logReadFailed = false;
     return Array.isArray(value) ? value.filter(isRecord) : [];
-  } catch (e) { return []; }
+  } catch (e) { logReadFailed = true; return []; }
 }
 export function logEvent(type, data = {}) {
   const log = getLog();
-  log.push({ t: new Date().toISOString(), pid, type, ...data });
-  const recent = log.slice(-4000);
+  log.push({ t: new Date().toISOString(), pid, type, ...data, bundle: currentEvaluationBundle() });
+  const recent = log.slice(-LOG_LIMIT);
   try {
     localStorage.setItem(LOG_KEY, JSON.stringify(recent));
     volatileLog = null;
+    logReadFailed = false;
   } catch (e) { volatileLog = recent; }
 }
 export function clearLog() {
   volatileLog = [];
-  try { localStorage.removeItem(LOG_KEY); } catch (e) {}
+  try { localStorage.removeItem(LOG_KEY); volatileLog = null; logReadFailed = false; } catch (e) { logReadFailed = true; }
 }
 
 // 연습 중 화면이 꺼지지 않게 한다 (지원하지 않는 폰에서는 아무 일도 없다)

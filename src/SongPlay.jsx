@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, threshold, today, sfx, logEvent } from './lib.js';
 import { analyzeChord } from './chordRecognition.js';
+import { songDiagnostics } from './evaluationExport.js';
 import { Piki, Modal, Confetti } from './ui.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
@@ -104,7 +105,7 @@ export function SongPlay({ s, update, go, params }) {
       if (complete && params && params.fromLesson) { d.done.song[2] = true; d.resume = null; }
       d.history[t] = (d.history[t] || 0) + Math.round((played * 4 * 60) / ((SP.bpm * tempo) / 100));
     });
-    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode });
+    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode, complete: played === BARS.length, diagnostics: songDiagnostics(list, BARS.map((bar) => bar.chord), judgeMode) });
     sfx.done(); go('songreport', { back });
   };
 

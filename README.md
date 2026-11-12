@@ -115,6 +115,8 @@ node qa/chord-browser.cjs
 node qa/practice-environment-unit.cjs
 node qa/pose-framing.cjs
 node qa/practice-environment.cjs
+node qa/evaluation-export-unit.cjs
+node qa/evaluation-export-browser.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.
@@ -124,5 +126,7 @@ Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지�
 불명확한 소리의 판정 보류, FFT 해상도, 합성 입력 반복 검증은 [코드 판정 보강](docs/CHORD_RELIABILITY.md)에 정리했다. 합성 검사 통과는 실제 기타 인식률을 의미하지 않는다.
 
 홈의 선택적 [연습 환경 확인](docs/PRACTICE_ENVIRONMENT.md)에서 촬영 위치와 마이크 입력을 준비한다. 입력 보정은 같은 장치에서 최대 10분 적용되며 저장하지 않는다.
+
+평가 패널에서 [참가자별 JSON 기록 회수](docs/EVALUATION_EXPORT.md)를 할 수 있다. 기존 전체 배열 복사도 유지하며 실패 시 수동 복사를 안내한다.
 
 배포 뒤 `node qa/deployed-smoke.cjs`로 운영 번들과 로컬 `dist`의 일치, 위젯→곡→리포트 경로를 확인할 수 있다. 먼저 `npm run build`를 실행한다. 새 브라우저 세션의 모의 입력을 사용하며 `QA_URL`로 대상 주소를 바꿀 수 있다.

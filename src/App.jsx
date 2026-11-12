@@ -8,6 +8,8 @@ import guitarOn from './img/guitar-on.svg';
 import guitarOff from './img/guitar-off.svg';
 import { useMicrophone } from './useMicrophone.js';
 import PracticeSetup from './PracticeSetup.jsx';
+import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
+import { getLogStorageMode } from './lib.js';
 
 const TABS = ['home', 'learn', 'practice', 'my'];
 
@@ -381,7 +383,44 @@ function History({ s, go }) {
 function Panel({ s, update, setS, close, go }) {
   const set = (k, v) => update((d) => { d.panel[k] = v; });
   const [logText, setLogText] = useState(null);
-  const showLog = () => { const txt = JSON.stringify(getLog(), null, 1); setLogText(txt); try { navigator.clipboard.writeText(txt).catch(() => {}); } catch (e) {} };
+  const [exportScope, setExportScope] = useState('participant');
+  const [notice, setNotice] = useState(null);
+  const operation = useRef(0);
+  useEffect(() => () => { operation.current += 1; }, []);
+  useEffect(() => { operation.current += 1; setLogText(null); setNotice(null); }, [s.panel.pid]);
+  const report = (scope) => {
+    const events = getLog();
+    let clipboard = false;
+    try { clipboard = !!navigator.clipboard?.writeText; } catch {}
+    return buildEvaluationExport(events, {
+      scope, pid: s.panel.pid, settings: s.panel,
+      logStorage: getLogStorageMode(),
+      bundle: currentEvaluationBundle(),
+      environment: { userAgent: navigator.userAgent, secureContext: window.isSecureContext,
+        mediaDevices: !!navigator.mediaDevices?.getUserMedia, clipboard },
+    });
+  };
+  const showLog = async () => {
+    const current = ++operation.current;
+    const txt = JSON.stringify(report('all').events, null, 1);
+    setLogText(txt); setNotice('복사 결과를 확인하고 있어요…');
+    let result;
+    try { result = await copyEvaluationText(txt, navigator.clipboard); } catch { result = { ok: false }; }
+    if (operation.current !== current) return;
+    setNotice(result.ok ? '전체 행동 기록을 복사했어요.' : '자동 복사를 완료하지 못했어요. 아래 기록을 눌러 직접 복사하거나 JSON 저장을 이용해 주세요.');
+  };
+  const saveLog = () => {
+    operation.current += 1;
+    const data = report(exportScope);
+    setLogText(JSON.stringify(data, null, 2));
+    try {
+      downloadEvaluation(data);
+      setNotice(`${data.summary.eventCount}건의 파일 저장을 요청했어요. 브라우저의 다운로드를 확인해 주세요. 아래 내용도 직접 복사할 수 있어요.`);
+    } catch {
+      setLogText(JSON.stringify(data, null, 2));
+      setNotice('파일 저장을 시작하지 못했어요. 아래 내용을 선택해 직접 복사해 주세요.');
+    }
+  };
   const fill = (ago, n = 1) => update((d) => { const t = today(d); d.attendances = Array.from({ length: n }, (_, i) => ({ date: addDays(t, -ago - i), method: 'sound' })); });
   return (
     <Modal onClose={close}>
@@ -392,8 +431,14 @@ function Panel({ s, update, setS, close, go }) {
       <div className="panel-row"><span>폰 홈 화면 (위젯)</span><button onClick={() => { close(); go('phone'); }}>보기</button></div>
       <div className="panel-row"><span>자세 알림</span><span><select value={s.panel.alert} onChange={(e) => set('alert', e.target.value)}><option value="auto">정해진 시점</option><option value="real">실제 판정</option><option value="manual">진행자가 띄움</option><option value="off">끔</option></select></span></div>
       <div className="panel-row"><span>자세 알림 한 번 띄우기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-alert')); close(); }}>지금 띄우기</button></div>
-      <div className="panel-row"><span>행동 기록 ({getLog().length}건)</span><span><button onClick={showLog}>복사</button> <button onClick={() => { clearLog(); setLogText(null); set('pid', s.panel.pid); }}>비우기</button></span></div>
-      {logText !== null && <textarea className="logbox" readOnly value={logText} onFocus={(e) => e.target.select()} />}
+      <div className="panel-row"><span>전체 행동 기록 ({getLog().length}건)</span><span><button onClick={showLog}>복사</button> <button onClick={() => { operation.current += 1; clearLog(); setLogText(null); setNotice(null); set('pid', s.panel.pid); }}>비우기</button></span></div>
+      <div className="panel-row evaluation-file-row"><label htmlFor="evaluation-scope">파일 저장 범위</label><select id="evaluation-scope" aria-label="파일 저장 범위" value={exportScope} onChange={(e) => { operation.current += 1; setExportScope(e.target.value); setLogText(null); setNotice(null); }}><option value="participant">현재 참가자 {s.panel.pid || '(미지정)'}</option><option value="all">전체 참가자</option></select><button onClick={saveLog}>JSON 저장</button></div>
+      <div className="sub" style={{ fontSize: 11 }}>파일에는 선택한 행동 기록·판정 결과와 브라우저 정보·현재 설정을 담아요. 영상·원음·입력 보정 수치는 포함하지 않아요.</div>
+      {getLog().length >= LOG_LIMIT && <div className="sub" role="status">최근 {LOG_LIMIT}건까지 보관해 이전 기록이 일부 없을 수 있어요. 참가자마다 파일을 회수해 주세요.</div>}
+      {getLogStorageMode() === 'memory' && <div className="sub" role="status">기록이 이 창에만 남아 있어요. 창을 닫기 전에 복사하거나 JSON 파일로 저장해 주세요.</div>}
+      {getLogStorageMode() === 'unavailable' && <div className="sub" role="status">저장된 행동 기록을 읽을 수 없어요. 아래 기록은 비어 있거나 일부만 있을 수 있어요.</div>}
+      {notice && <div className="sub" role="status">{notice}</div>}
+      {logText !== null && <textarea className="logbox" aria-label="내보낼 행동 기록" readOnly value={logText} onFocus={(e) => e.target.select()} />}
       <div className="panel-row"><span>마지막 출석</span><select defaultValue="" onChange={(e) => { const v = e.target.value; if (v === 'streak') fill(0, 3); else if (v !== '') fill(Number(v)); }}><option value="">고르기</option><option value="streak">오늘까지 3일 연속</option><option value="1">1일 전</option><option value="2">2일 전</option><option value="4">4일 전</option><option value="7">7일 전</option></select></div>
       <div className="panel-row"><span>레슨 1~3 완료 처리</span><button onClick={() => update((d) => { ['em', 'g', 'c'].forEach((k) => { d.done[k] = [true, true, true]; }); })}>적용</button></div>
       <div className="panel-row"><span>코스 1 전부 완료 처리 (곡 연습 열기)</span><button onClick={() => update((d) => { ['em', 'g', 'c', 'song'].forEach((k) => { d.done[k] = [true, true, true]; }); d.resume = null; })}>적용</button></div>
