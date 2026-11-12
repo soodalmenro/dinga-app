@@ -25,6 +25,10 @@ async function check(browser, url) {
         async close() {}
         async send() {
           window.poseTests.sends += 1;
+          if (window.poseTests.hangSend) {
+            await new Promise((resolve) => { window.releaseHungFrame = () => { this.result({ poseLandmarks: [] }); resolve(); }; });
+            return;
+          }
           if (window.poseTests.failSend) throw new Error('test inference failure');
           const landmarks = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, visibility: 0 }));
           landmarks[11] = { x: 0.3, y: 0.4, visibility: 1 };
@@ -72,6 +76,17 @@ async function check(browser, url) {
     await page.getByRole('button', { name: '자세 판정 다시 시도', exact: true }).click();
     await page.getByText('손목이 안 보여요', { exact: true }).waitFor();
     console.log('PASS inference failure shown and retry resumes tracking');
+    await page.evaluate(() => { window.poseTests.hangSend = true; });
+    await page.getByRole('button', { name: '자세 판정 다시 시도', exact: true }).waitFor();
+    await page.evaluate(() => { window.poseTests.hangSend = false; });
+    await page.getByRole('button', { name: '자세 판정 다시 시도', exact: true }).click();
+    await page.getByText('손목이 안 보여요', { exact: true }).waitFor();
+    const statusBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('dinga-log')).filter((entry) => entry.type === 'pose_status').length);
+    await page.evaluate(() => window.releaseHungFrame());
+    await page.waitForTimeout(100);
+    const statusAfter = await page.evaluate(() => JSON.parse(localStorage.getItem('dinga-log')).filter((entry) => entry.type === 'pose_status').length);
+    assert.equal(statusAfter, statusBefore);
+    console.log('PASS hung inference times out, reloads model and ignores stale results');
 
     await page.getByRole('button', { name: '다음', exact: true }).click();
     await page.getByRole('heading', { name: '파트 완료!', exact: true }).waitFor();

@@ -4,7 +4,12 @@
 import content from './content.json';
 
 const BASE = `${import.meta.env.BASE_URL}pose/`;
-let pose = null; let loading = null; let handler = null; let sending = false;
+let pose = null; let loading = null; let handler = null; let sending = null;
+
+function discardPose(model) {
+  if (pose === model) { pose = null; loading = null; }
+  try { if (model.close) Promise.resolve(model.close()).catch(() => {}); } catch (error) {}
+}
 
 function loadScript(src) {
   return new Promise((res, rej) => {
@@ -26,7 +31,7 @@ export function initPose() {
       if (!window.Pose) await loadScript(`${BASE}pose.js`);
       const p = new window.Pose({ locateFile: (f) => `${BASE}${f}` });
       p.setOptions({ modelComplexity: 0, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-      p.onResults((r) => { if (handler) handler(r); });
+      p.onResults((r) => { if (pose === p && handler) handler(r); });
       let timer;
       try {
         await Promise.race([
@@ -34,7 +39,7 @@ export function initPose() {
           new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('pose_timeout')), 30000); }),
         ]);
       } catch (error) {
-        if (p.close) Promise.resolve(p.close()).catch(() => {});
+        discardPose(p);
         throw error;
       } finally { clearTimeout(timer); }
       pose = p;
@@ -98,24 +103,45 @@ export function watchPosture(video, { onIssue, onStatus }) {
   const loop = async () => {
     if (stopped) return;
     if (pose && !sending && video.readyState >= 2) {
-      sending = true;
+      const model = pose;
+      const job = { model, receive };
+      sending = job;
       handler = receive;
+      let inferenceTimer;
       try {
-        await pose.send({ image: video });
+        await Promise.race([
+          model.send({ image: video }),
+          new Promise((_, reject) => {
+            inferenceTimer = setTimeout(() => reject(new Error('inference_timeout')), 10000);
+          }),
+        ]);
         errors = 0;
       } catch (error) {
         since.wrist = null; since.shoulder = null;
         errors += 1;
-        if (!stopped && errors >= 3) { stopped = true; onStatus('error'); }
+        if (!stopped && (errors >= 3 || error.message === 'inference_timeout')) {
+          discardPose(model);
+          stopped = true;
+          onStatus('error');
+        }
       } finally {
+        clearTimeout(inferenceTimer);
         if (handler === receive) handler = null;
-        sending = false;
+        if (sending === job) sending = null;
       }
     }
     if (!stopped) timer = setTimeout(loop, 250);
   };
   loop();
-  return () => { stopped = true; clearTimeout(timer); if (handler === receive) handler = null; };
+  return () => {
+    stopped = true;
+    clearTimeout(timer);
+    if (handler === receive) handler = null;
+    if (sending && sending.receive === receive) {
+      discardPose(sending.model);
+      sending = null;
+    }
+  };
 }
 
 // 폰에서 기준값을 맞출 때 콘솔에서 써 볼 수 있게 열어 둔다

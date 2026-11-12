@@ -424,9 +424,10 @@ export default function App() {
   const [nav, setNav] = useState({ route: startPhone ? 'phone' : 'home', params: {} });
   const [panel, setPanel] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
+  const [storageError, setStorageError] = useState(false);
   const appRef = useRef(null);
   const update = useCallback((fn) => setS((prev) => { const d = JSON.parse(JSON.stringify(prev)); fn(d); return d; }), []);
-  useEffect(() => { save(s); }, [s]);
+  useEffect(() => { setStorageError(!save(s)); }, [s]);
   const go = useCallback((route, params = {}) => { logEvent('screen', { route, lesson: params.lesson || (params.custom ? 'transition' : undefined), part: params.part }); setNav({ route, params }); }, []);
   useEffect(() => { setPid(s.panel.pid); }, [s.panel.pid]);
   useEffect(() => {
@@ -452,6 +453,7 @@ export default function App() {
   const p = { s, update, go };
   return (
     <div className="app" ref={appRef}>
+      {storageError && <div className="storage-notice" role="alert">이 브라우저에 기록을 저장할 수 없어요. 창을 닫기 전에 평가 패널에서 행동 기록을 복사해 주세요. <button style={{ textDecoration: 'underline', minHeight: 44 }} onClick={() => setStorageError(!save(s))}>저장 다시 시도</button></div>}
       {route === 'phone' && <Phone s={s} open={openApp} />}
       {route === 'home' && <Home {...p} />}
       {route === 'attend' && <Attend {...p} />}
