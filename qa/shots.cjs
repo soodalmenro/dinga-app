@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+const O = '/tmp/claude-0/-home-claude/dc1fddfa-6bb2-56c6-a150-2c6c75a25123/scratchpad/';
+const ds = (off) => { const d = new Date(); d.setDate(d.getDate() + off); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+(async () => { const b = await chromium.launch({ args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] }); const c = await b.newContext({ viewport: { width: 375, height: 812 } }); const p = await c.newPage();
+  const set = async (st) => { await p.evaluate((st) => localStorage.setItem('dinga-v1', JSON.stringify(st)), st); await p.reload(); await p.waitForTimeout(800); };
+  await p.goto('http://localhost:4173/'); await p.waitForTimeout(600);
+  await set({ attendances: [{ date: ds(0), method: 'sound' }, { date: ds(-1), method: 'sound' }, { date: ds(-2), method: 'sound' }], panel: { alert: 'manual', judge: 'allok', speed: 3 } }); await p.screenshot({ path: O + 's_w1.png' });
+  await set({ attendances: [{ date: ds(-4), method: 'sound' }], panel: { alert: 'manual', judge: 'allok', speed: 3 } }); await p.screenshot({ path: O + 's_w2.png' });
+  await set({ attendances: [{ date: ds(-8), method: 'sound' }], panel: { alert: 'manual', judge: 'allok', speed: 3 } }); await p.screenshot({ path: O + 's_w5.png' });
+  await set({ attendances: [{ date: ds(0), method: 'sound' }], panel: { alert: 'manual', judge: 'allok', speed: 3 } });
+  await p.locator('.widget').click(); await p.waitForTimeout(2200); await p.getByRole('button', { name: '학습', exact: true }).click(); await p.getByText('레슨 1 · Em 코드').click(); await p.getByText('파트 2 · 코드 만들기').click(); await p.waitForTimeout(500);
+  for (let i = 0; i < 4; i++) { const t = await p.evaluate(() => document.body.innerText); if (t.includes('소리 내기')) break; await p.locator('.btn').first().click(); await p.waitForTimeout(400); }
+  await p.waitForTimeout(1500); window = null;
+  await p.evaluate(() => window.dispatchEvent(new Event('dinga-alert'))); await p.locator('.palert').waitFor({ timeout: 8000 }); await p.screenshot({ path: O + 's_p1.png' });
+  for (let i = 0; i < 3; i++) await p.mouse.click(360, 20); await p.waitForTimeout(400); await p.screenshot({ path: O + 's_panel.png' }); await p.getByRole('button', { name: '닫기', exact: true }).click();
+  await p.locator('.iconbtn').first().click(); await p.locator('.sheet').getByRole('button', { name: '나가기', exact: true }).click(); await p.waitForTimeout(300);
+  await p.getByRole('button', { name: 'MY', exact: true }).click(); await p.waitForTimeout(400); await p.screenshot({ path: O + 's_c1.png' });
+  await p.getByRole('button', { name: '나도 연주하기', exact: true }).click(); await p.waitForFunction(() => document.body.innerText.includes('곡 리포트'), null, { timeout: 40000 }); await p.waitForTimeout(1500); await p.screenshot({ path: O + 's_c2.png' });
+  await p.getByRole('button', { name: '친구들 보기', exact: true }).click(); await p.waitForTimeout(400); await p.screenshot({ path: O + 's_c3.png' });
+  await b.close(); })().catch((e) => { console.log('ERR', e.message.slice(0, 300)); process.exit(1); });

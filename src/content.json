@@ -1,0 +1,651 @@
+{
+ "soundThreshold": {
+  "low": 0.02,
+  "mid": 0.05,
+  "high": 0.1
+ },
+ "homeLines": {
+  "first": "처음 만나서 반가워요! 기타 한 번 튕겨볼까요?",
+  "attendedOnly": "지난번엔 출석했어요! 오늘은 한 파트만 해볼까요?",
+  "happy": "오늘도 왔네!",
+  "sulky": "흥, 어제 안 왔죠?",
+  "stare": "…기타에 먼지 쌓이는 중",
+  "exhausted": "기다리다 지쳤어요…",
+  "melted": "녹는 중… 한 번만 튕겨줘요"
+ },
+ "moodNames": {
+  "happy": "신남",
+  "sulky": "삐짐",
+  "stare": "째려봄",
+  "exhausted": "지침",
+  "melted": "녹아내림"
+ },
+ "postureTips": {
+  "wrist": {
+   "name": "손목",
+   "title": "손목을 곧게 펴고 앉아 주세요",
+   "warn": "손목을 너무 꺾지 말고 곧게 펴 봐요"
+  },
+  "thumb": {
+   "name": "엄지",
+   "title": "엄지는 넥 뒤쪽에 가볍게 대 주세요",
+   "warn": "엄지는 넥 뒤쪽 가운데에 가볍게 대 보세요"
+  },
+  "shoulder": {
+   "name": "어깨",
+   "title": "어깨 힘을 빼고 편하게 앉아 주세요",
+   "warn": "어깨를 내리고 힘을 빼 보세요"
+  },
+  "all": {
+   "name": "전체 자세",
+   "title": "화면 안에 상체와 기타가 보이게 앉아요",
+   "warn": ""
+  }
+ },
+ "chords": {
+  "Em": {
+   "open": [
+    6,
+    3,
+    2,
+    1
+   ],
+   "mute": [],
+   "dots": [
+    {
+     "string": 5,
+     "fret": 2,
+     "finger": 2,
+     "name": "중지"
+    },
+    {
+     "string": 4,
+     "fret": 2,
+     "finger": 3,
+     "name": "약지"
+    }
+   ]
+  },
+  "G": {
+   "open": [
+    4,
+    3,
+    2
+   ],
+   "mute": [],
+   "dots": [
+    {
+     "string": 5,
+     "fret": 2,
+     "finger": 1,
+     "name": "검지"
+    },
+    {
+     "string": 6,
+     "fret": 3,
+     "finger": 2,
+     "name": "중지"
+    },
+    {
+     "string": 1,
+     "fret": 3,
+     "finger": 3,
+     "name": "약지"
+    }
+   ]
+  },
+  "C": {
+   "open": [
+    3,
+    1
+   ],
+   "mute": [
+    6
+   ],
+   "dots": [
+    {
+     "string": 2,
+     "fret": 1,
+     "finger": 1,
+     "name": "검지"
+    },
+    {
+     "string": 4,
+     "fret": 2,
+     "finger": 2,
+     "name": "중지"
+    },
+    {
+     "string": 5,
+     "fret": 3,
+     "finger": 3,
+     "name": "약지"
+    }
+   ]
+  }
+ },
+ "stuckTips": {
+  "card": "천천히 읽어도 괜찮아요. 준비되면 다음을 눌러요.",
+  "diagram": "줄을 프렛 바로 뒤에서 꾹 눌러 보세요. 소리가 또렷해져요.",
+  "play": "폰을 기타 가까이에 두고 조금 세게 튕겨 보세요.",
+  "beat": "박자가 빠르면 한 박에 한 번만 내려쳐도 돼요.",
+  "blind": "기억이 안 나면 힌트 보기를 눌러요.",
+  "transition": "코드를 바꾸기 한 박 전에 손을 미리 떼 보세요."
+ },
+ "transitionTips": {
+  "Em-G": "새끼손가락 쪽부터 먼저 움직여 봐요",
+  "G-C": "검지를 먼저 2번 줄 1프렛에 놓아 봐요",
+  "Em-C": "중지는 4번 줄 2프렛에 그대로 두고 나머지만 옮겨요"
+ },
+ "lessons": [
+  {
+   "id": "em",
+   "title": "Em 코드",
+   "weekLabel": "Em 코드 연습",
+   "sub": "가장 쉬운 코드로 첫 소리 내기",
+   "chord": "Em",
+   "postureFocus": "wrist",
+   "parts": [
+    {
+     "title": "준비",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "card",
+       "img": "hi",
+       "title": "기타를 편하게 안아요",
+       "text": "의자에 앉아 기타 몸통을 오른쪽 허벅지에 올려요. 줄은 굵은 쪽이 6번, 가는 쪽이 1번이에요."
+      },
+      {
+       "type": "play",
+       "text": "아무 줄이나 한 번씩 튕겨 보세요",
+       "showChord": false
+      }
+     ]
+    },
+    {
+     "title": "코드 만들기",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "card",
+       "img": "hi",
+       "title": "Em 코드는 손가락 두 개면 돼요",
+       "text": "2번(중지)과 3번(약지)만 쓰는 가장 쉬운 코드예요. 나머지 줄은 누르지 않아요."
+      },
+      {
+       "type": "diagram"
+      },
+      {
+       "type": "play",
+       "text": "여섯 줄을 한 번에 내려쳐 보세요",
+       "showChord": true
+      }
+     ]
+    },
+    {
+     "title": "소리 내기",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "play",
+       "text": "천천히 한 번씩 쳐 보세요",
+       "showChord": true
+      },
+      {
+       "type": "beat"
+      },
+      {
+       "type": "blind"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "g",
+   "title": "G 코드",
+   "weekLabel": "G 코드 연습",
+   "sub": "손가락 3개로 G 만들기",
+   "chord": "G",
+   "postureFocus": "thumb",
+   "parts": [
+    {
+     "title": "준비",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "card",
+       "img": "hi",
+       "title": "G 코드는 손가락 세 개를 써요",
+       "text": "손을 조금 넓게 벌려야 해요. 처음엔 소리가 안 나도 괜찮아요."
+      },
+      {
+       "type": "play",
+       "text": "아무 줄이나 한 번씩 튕겨 보세요",
+       "showChord": false
+      }
+     ]
+    },
+    {
+     "title": "코드 만들기",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "diagram"
+      },
+      {
+       "type": "play",
+       "text": "여섯 줄을 한 번에 내려쳐 보세요",
+       "showChord": true
+      }
+     ]
+    },
+    {
+     "title": "소리 내기",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "beat"
+      },
+      {
+       "type": "blind"
+      },
+      {
+       "type": "transition",
+       "pair": [
+        "Em",
+        "G"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "c",
+   "title": "C 코드",
+   "weekLabel": "C 코드 연습",
+   "sub": "6번 줄을 빼고 C 만들기",
+   "chord": "C",
+   "postureFocus": "shoulder",
+   "parts": [
+    {
+     "title": "준비",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "card",
+       "img": "hi",
+       "title": "C 코드는 6번 줄을 치지 않아요",
+       "text": "가장 굵은 6번 줄은 빼고 5번 줄부터 내려쳐요."
+      },
+      {
+       "type": "play",
+       "text": "아무 줄이나 한 번씩 튕겨 보세요",
+       "showChord": false
+      }
+     ]
+    },
+    {
+     "title": "코드 만들기",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "diagram"
+      },
+      {
+       "type": "play",
+       "text": "5번 줄부터 한 번에 내려쳐 보세요",
+       "showChord": true
+      }
+     ]
+    },
+    {
+     "title": "소리 내기",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "beat"
+      },
+      {
+       "type": "blind"
+      },
+      {
+       "type": "transition",
+       "pair": [
+        "G",
+        "C"
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "song",
+   "title": "첫 곡",
+   "weekLabel": "완주하기",
+   "sub": "Em, G, C로 8마디 연주",
+   "chord": "Em",
+   "postureFocus": "all",
+   "parts": [
+    {
+     "title": "전환 1",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "card",
+       "img": "play",
+       "title": "첫 곡은 8마디예요",
+       "text": "Em Em G G C C G Em 순서로 쳐요. 먼저 코드 바꾸기부터 연습해요."
+      },
+      {
+       "type": "transition",
+       "pair": [
+        "Em",
+        "G"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "전환 2",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "transition",
+       "pair": [
+        "G",
+        "C"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "곡 연주",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "song"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "songChart": {
+  "title": "첫 곡",
+  "bars": [
+   "Em",
+   "Em",
+   "G",
+   "G",
+   "C",
+   "C",
+   "G",
+   "Em"
+  ],
+  "bpm": 80
+ },
+ "widgetLines": {
+  "first": "처음 만나서 반가워요!",
+  "happy": "오늘도 쳤어요!",
+  "sulky": "어제 안 왔죠?",
+  "stare": "{n}일째…",
+  "exhausted": "기다리다 지쳤어요…",
+  "melted": "녹는 중…"
+ },
+ "liveAlerts": {
+  "wrist": {
+   "title": "손목이 꺾였어요",
+   "text": "살짝 펴 볼까요?"
+  },
+  "thumb": {
+   "title": "엄지에 힘이 들어갔어요",
+   "text": "넥 뒤에 가볍게 대 볼까요?"
+  },
+  "shoulder": {
+   "title": "어깨가 올라갔어요",
+   "text": "힘을 빼 볼까요?"
+  },
+  "all": {
+   "title": "손목이 꺾였어요",
+   "text": "살짝 펴 볼까요?"
+  }
+ },
+ "poseThresholds": {
+  "hand": "left",
+  "wristDeg": 45,
+  "tiltDeg": 12,
+  "neckRatio": 0.3,
+  "holdMs": 1500,
+  "cooldownMs": 15000,
+  "maxPerPart": 3
+ },
+ "challenge": {
+  "title": "딩가의 첫 노래"
+ },
+ "friendSamples": [
+  {
+   "name": "민지",
+   "practicedToday": true,
+   "minutes": 12,
+   "img": "happy"
+  },
+  {
+   "name": "준호",
+   "practicedToday": true,
+   "minutes": 5,
+   "img": "hi"
+  },
+  {
+   "name": "서연",
+   "practicedToday": false,
+   "minutes": 0,
+   "img": "zzz"
+  }
+ ],
+ "course": {
+  "title": "첫 코드 3개 배우기",
+  "sub": "하나씩 배우고, 마지막엔 한 번에 쳐 봐요",
+  "chords": [
+   "Em",
+   "G",
+   "C"
+  ],
+  "next": [
+   {
+    "title": "코스 2 · Am, Dm, E",
+    "sub": "코스 1을 마치면 열려요"
+   },
+   {
+    "title": "코스 3 · D, A, Bm",
+    "sub": "코스 2를 마치면 열려요"
+   }
+  ]
+ },
+ "courseSong": {
+  "id": "song",
+  "title": "완주하기",
+  "weekLabel": "완주하기",
+  "sub": "전환 → 박자 → 완주",
+  "chord": "Em",
+  "postureFocus": "all",
+  "parts": [
+   {
+    "title": "전환 연습",
+    "sub": "Em → G → C, 천천히 바꿔 잡기",
+    "steps": [
+     {
+      "type": "card",
+      "img": "play",
+      "title": "코드 3개를 이어서 쳐요",
+      "text": "Em Em G G C C G Em 순서로 8마디를 칠 거예요. 먼저 코드 바꾸기부터 천천히 연습해요."
+     },
+     {
+      "type": "transition",
+      "pair": [
+       "Em",
+       "G"
+      ]
+     },
+     {
+      "type": "transition",
+      "pair": [
+       "G",
+       "C"
+      ]
+     }
+    ]
+   },
+   {
+    "title": "박자 맞추기",
+    "sub": "박자에 맞춰 코드마다 4박씩",
+    "steps": [
+     {
+      "type": "beat",
+      "chord": "Em"
+     },
+     {
+      "type": "beat",
+      "chord": "G"
+     },
+     {
+      "type": "beat",
+      "chord": "C"
+     }
+    ]
+   },
+   {
+    "title": "완주",
+    "sub": "딩가의 첫 노래를 끝까지 치기",
+    "steps": [
+     {
+      "type": "song"
+     }
+    ]
+   }
+  ]
+ },
+ "songPractice": {
+  "title": "딩가의 첫 노래",
+  "bpm": 80,
+  "sections": [
+   {
+    "name": "인트로",
+    "lines": [
+     [
+      [
+       "Em",
+       ""
+      ],
+      [
+       "G",
+       ""
+      ],
+      [
+       "C",
+       ""
+      ],
+      [
+       "Em",
+       ""
+      ]
+     ]
+    ]
+   },
+   {
+    "name": "1절",
+    "lines": [
+     [
+      [
+       "Em",
+       "오늘도"
+      ],
+      [
+       "G",
+       "작은 손으로"
+      ]
+     ],
+     [
+      [
+       "C",
+       "첫 줄을"
+      ],
+      [
+       "Em",
+       "울려 봐요"
+      ]
+     ]
+    ]
+   },
+   {
+    "name": "후렴",
+    "lines": [
+     [
+      [
+       "Em",
+       "서툴러도"
+      ],
+      [
+       "G",
+       "괜찮아"
+      ]
+     ],
+     [
+      [
+       "C",
+       "한 걸음씩"
+      ],
+      [
+       "Em",
+       "가는 거야"
+      ]
+     ]
+    ]
+   }
+  ]
+ },
+ "chordNotes": {
+  "Em": [
+   4,
+   7,
+   11
+  ],
+  "G": [
+   7,
+   11,
+   2
+  ],
+  "C": [
+   0,
+   4,
+   7
+  ]
+ }
+}
