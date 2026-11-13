@@ -90,6 +90,8 @@ h2 { font-size: 18px; margin: 0; line-height: 1.4; }
 .modal { position: absolute; inset: 0; background: rgba(48, 47, 70, 0.55); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal.bottom { align-items: flex-end; }
 .sheet { width: 100%; background: #fff; border-radius: 28px; padding: 24px; display: flex; flex-direction: column; gap: 14px; animation: fadeup 0.2s ease-out; max-height: 100%; overflow-y: auto; }
+.sheet h1, .sheet h2, .sheet .sub, .sheet .btn { word-break: keep-all; overflow-wrap: anywhere; }
+.sheet .btn { padding-top: 10px; padding-bottom: 10px; }
 .toast { position: absolute; left: 20px; right: 20px; bottom: 96px; background: var(--ink); color: #fff; font-size: 13px; font-weight: 700; padding: 14px 16px; border-radius: 16px; text-align: center; z-index: 60; animation: fadeup 0.2s ease-out; }
 
 .cam { position: relative; width: 100%; flex: 1; min-height: 220px; border-radius: 24px; background: var(--ink); overflow: hidden; display: flex; align-items: center; justify-content: center; color: #fff; }
@@ -148,7 +150,7 @@ input[type='range'] { width: 100%; accent-color: var(--o); height: 28px; }
 .btn:focus-visible, .iconbtn:focus-visible, .textbtn:focus-visible, .tabbar button:focus-visible, .card.tap:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .chip { animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; } .chip:nth-child(2) { animation-delay: 0.08s; } .chip:nth-child(3) { animation-delay: 0.16s; }
 .pill.streak { animation: pop 0.4s cubic-bezier(0.2, 1.6, 0.4, 1); }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; scroll-behavior: auto !important; } }
 
 /* 스플래시 */
 .splash { position: absolute; inset: 0; z-index: 100; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 40px 32px calc(40px + env(safe-area-inset-bottom)); transition: opacity 0.35s ease-out, transform 0.35s ease-out; }

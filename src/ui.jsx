@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import motion from './motion.json';
 import { content } from './lib.js';
+import { useReducedMotion } from './useReducedMotion.js';
 
 const imgs = import.meta.glob('./img/*.webp', { eager: true, import: 'default' });
 export const imgSrc = (name) => imgs[`./img/${name}.webp`];
@@ -25,21 +26,22 @@ const IDLE_FOR = { happy: 'happy', sulky: 'sulky', stare: 'stare', exhausted: 'e
 // 캐릭터 피키. name은 이미지 이름, 누르면 반응한다
 export function Piki({ name, size = 200, still = false, onTap }) {
   const ref = useRef(null);
-  const idleRef = useRef(null);
+  const reducedMotion = useReducedMotion();
   const mood = IDLE_FOR[name] || 'sulky';
   const k = size / 280;
   useEffect(() => {
     const el = ref.current;
-    if (!el || !el.animate || still) return undefined;
+    if (!el || !el.animate || still || reducedMotion) return undefined;
+    let active = true;
     const sIn = toKeyframes(motion.swapIn, k);
     const a = el.animate(sIn.keyframes, { duration: sIn.duration, fill: 'both' });
     const idle = toKeyframes(motion.idle[mood], k);
-    a.onfinish = () => { idleRef.current = el.animate(idle.keyframes, { duration: idle.duration, iterations: Infinity }); };
-    return () => { a.cancel(); if (idleRef.current) idleRef.current.cancel(); };
-  }, [name, mood, k, still]);
+    a.onfinish = () => { if (active) el.animate(idle.keyframes, { duration: idle.duration, iterations: Infinity }); };
+    return () => { active = false; a.onfinish = null; el.getAnimations().forEach((animation) => animation.cancel()); };
+  }, [name, mood, k, still, reducedMotion]);
   const tap = () => {
     const el = ref.current;
-    if (el && el.animate && !still) {
+    if (el && el.animate && !still && !reducedMotion) {
       const t = toKeyframes(motion.tap[motion.tapType[mood] || 'small'], k);
       el.animate(t.keyframes, { duration: t.duration });
     }
@@ -153,9 +155,10 @@ export function Progress({ n, total }) {
 // 완료 순간의 색종이
 export function Confetti() {
   const ref = useRef(null);
+  const reducedMotion = useReducedMotion();
   useEffect(() => {
     const c = ref.current; if (!c) return undefined;
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    if (reducedMotion) return undefined;
     const w = (c.width = c.offsetWidth); const h = (c.height = c.offsetHeight); const g = c.getContext('2d');
     const colors = ['#FEC745', '#FF9A3D', '#F2617A', '#2FA8E8', '#3DBE6E'];
     const ps = Array.from({ length: 90 }, () => ({ x: w / 2 + (Math.random() - 0.5) * 80, y: h * 0.35, vx: (Math.random() - 0.5) * 9, vy: -Math.random() * 11 - 3, r: Math.random() * 5 + 4, c: colors[Math.floor(Math.random() * colors.length)], a: Math.random() * 6 }));
@@ -167,7 +170,7 @@ export function Confetti() {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    return () => { cancelAnimationFrame(raf); g.clearRect(0, 0, w, h); };
+  }, [reducedMotion]);
   return <canvas ref={ref} className="confetti" />;
 }

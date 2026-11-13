@@ -14,6 +14,7 @@
 - [평가 기록 JSON 회수와 스키마](EVALUATION_EXPORT.md)
 - [장치 중단 복구·화면 복귀·코드 전환 검증](MEDIA_RECOVERY.md)
 - [자세 관측 경계·반복 사용·연속 실행 검사](RECOGNITION_SOAK.md)
+- [동작 줄이기·확대 팝업 가독성](ACCESSIBILITY_MOTION.md)
 
 ## 제공하는 기능
 

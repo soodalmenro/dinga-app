@@ -128,6 +128,7 @@ node qa/chord-boundaries.cjs
 node qa/repeated-use.cjs
 node qa/practice-soak.cjs
 node qa/recovery-layout.cjs
+node qa/motion-accessibility.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.
@@ -145,3 +146,5 @@ Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지�
 연습 중 장치 중단·명시적 재연결·화면 복귀와 새 분석 창의 코드 판정은 [입력 중단 복구](docs/MEDIA_RECOVERY.md)를 참고한다.
 
 추적 공백·멈춘 영상·느린 결과의 자세 지속 시간 처리, 반복 사용과 5분 연속 자원 검사는 [인식 경계와 반복 사용](docs/RECOGNITION_SOAK.md)에 정리했다.
+
+기기의 동작 줄이기 설정 반영과 확대 팝업 줄바꿈은 [접근성 모션 보강](docs/ACCESSIBILITY_MOTION.md)을 참고한다.

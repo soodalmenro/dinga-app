@@ -3,8 +3,9 @@ const R = []; const ok = (name, cond, extra = '') => { R.push(`${cond ? 'PASS' :
 const URL = process.env.QA_URL || 'http://localhost:4173/';
 const channel = process.env.QA_BROWSER_CHANNEL;
 const ds = (off) => { const d = new Date(); d.setDate(d.getDate() + off); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
+let lastPage;
 let VARIANT = 'prd'; // A·B는 PRD 원본 흐름, C는 아이디어 반영 흐름
-async function mk(b) { const c = await b.newContext({ viewport: { width: 375, height: 812 } }); await c.addInitScript((v) => { if (!localStorage.getItem('dinga-v1')) localStorage.setItem('dinga-v1', JSON.stringify({ panel: { variant: v } })); }, VARIANT); const p = await c.newPage(); p.errs = []; p.on('pageerror', (e) => p.errs.push(e.message)); return p; }
+async function mk(b) { const c = await b.newContext({ viewport: { width: 375, height: 812 } }); await c.addInitScript((v) => { if (!localStorage.getItem('dinga-v1')) localStorage.setItem('dinga-v1', JSON.stringify({ panel: { variant: v } })); }, VARIANT); const p = await c.newPage(); lastPage = p; p.errs = []; p.on('pageerror', (e) => p.errs.push(e.message)); return p; }
 const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('dinga-v1')));
 const setSt = async (p, patch) => { await p.evaluate((patch) => { const base = JSON.parse(localStorage.getItem('dinga-v1')); const s = { ...base, ...patch, panel: { ...base.panel, ...(patch.panel || {}) } }; localStorage.setItem('dinga-v1', JSON.stringify(s)); }, patch); await p.reload(); await p.waitForTimeout(700); };
 const txt = (p) => p.evaluate(() => document.body.innerText);
@@ -317,4 +318,8 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('C 묶음 화면 오류 없음', p.errs.length === 0, p.errs.join(' | ')); await b.close();
   console.log(R.join('\n')); console.log(`\n${R.filter((x) => x.startsWith('PASS')).length} pass / ${R.filter((x) => x.startsWith('FAIL')).length} fail`);
   if (R.some((line) => line.startsWith('FAIL'))) process.exitCode = 1;
-})().catch((e) => { console.log(R.join('\n')); console.log('CRASH', e.message.slice(0, 500)); process.exit(1); });
+})().catch(async (e) => {
+  console.log(R.join('\n')); console.log('CRASH', e.message.slice(0, 500));
+  try { if (lastPage && !lastPage.isClosed()) console.log('QA_STATE', JSON.stringify(await lastPage.evaluate(() => ({ hidden: document.hidden, screen: document.body.innerText.slice(-2000), events: JSON.parse(localStorage.getItem('dinga-log') || '[]').slice(-12).map(({type, reason})=>({type,reason})) })))); } catch {}
+  process.exit(1);
+});
