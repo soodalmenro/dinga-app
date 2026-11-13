@@ -31,8 +31,16 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   const hits = useRef([]);
   const elapsed = useRef(0);
   const results = useRef([]);
+  const startLogged = useRef(false);
   const speed = s.panel.speed;
   const beatMs = 60000 / ((content.songChart.bpm * tempo) / 100) / speed;
+  const previousBeatMs = useRef(beatMs);
+  useEffect(() => {
+    if (previousBeatMs.current === beatMs) return;
+    previousBeatMs.current = beatMs;
+    elapsed.current = results.current.length * 4 * beatMs; hits.current = [];
+    setBar(Math.min(results.current.length, 7)); setBeat(0);
+  }, [beatMs]);
   useEffect(() => {
     if (inputLost && !interrupted.current) {
       interrupted.current = true; elapsed.current = results.current.length * 4 * beatMs; hits.current = [];
@@ -40,7 +48,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
     } else if (!inputLost && interrupted.current) {
       interrupted.current = false;
       if (micOn === false) {
-        results.current = []; hits.current = []; elapsed.current = 0;
+        results.current = []; hits.current = []; elapsed.current = 0; startLogged.current = false;
         setRes([]); setBar(0); setBeat(0); setPhase('wait'); setActiveJudge(null); setQuiet(false);
       }
     }
@@ -64,7 +72,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
     if (phase !== 'play' || exit || suspended) return undefined;
     const stop = micOn ? makeOnsetDetector(() => hits.current.push(elapsed.current)) : () => {};
     const out = results.current;
-    if (elapsed.current === 0) logEvent('song_start', { tempo, mic: !!micOn, judge: judgeMode });
+    if (!startLogged.current) { startLogged.current = true; logEvent('song_start', { tempo, mic: !!micOn, judge: judgeMode }); }
     let lastTick = performance.now();
     const judge = (i) => {
       const mode = judgeMode;
@@ -99,7 +107,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       }
     }, 40);
     return () => { clearInterval(id); stop(); };
-  }, [phase, exit, suspended]);
+  }, [phase, exit, suspended, beatMs]);
 
   const startManual = () => { setActiveJudge(judgeMode); setPhase('play'); };
   return (

@@ -12,13 +12,14 @@ const INPUT_MESSAGES = {
   invalid: '입력 소리를 확인할 수 없어요. 다시 확인해 주세요.',
 };
 
-function MicrophoneSetup() {
+function MicrophoneSetup({ paused }) {
   const [phase, setPhase] = useState('idle');
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState(null);
   const request = useRef(0); const timer = useRef(null);
   const release = () => { request.current += 1; clearInterval(timer.current); mic.stop(); };
   const cancel = (next = 'idle') => { release(); setResult(null); setPhase(next); };
+  useEffect(() => { if (paused && ['request', 'noise', 'signal', 'result', 'applied'].includes(phase)) cancel('paused'); }, [paused]);
   useEffect(() => {
     const hidden = () => { if (document.hidden) cancel('paused'); };
     const unsubscribe = mic.subscribe((state) => { if (state === 'interrupted') cancel('paused'); });
@@ -73,11 +74,12 @@ function MicrophoneSetup() {
   </section>;
 }
 
-function CameraSetup() {
+function CameraSetup({ paused }) {
   const [attempt, setAttempt] = useState(0);
   const [phase, setPhase] = useState('idle');
   const [guide, setGuide] = useState(null);
   const video = useRef(null);
+  useEffect(() => { if (paused && attempt > 0) { setAttempt(0); setPhase('paused'); setGuide(null); } }, [paused]);
   useEffect(() => {
     const hidden = () => { if (document.hidden) { setAttempt(0); setPhase('paused'); setGuide(null); } };
     document.addEventListener('visibilitychange', hidden);
@@ -140,12 +142,12 @@ function CameraSetup() {
   </section>;
 }
 
-export default function PracticeSetup({ go }) {
+export default function PracticeSetup({ go, paused = false }) {
   return <div className="screen setup">
     <h1 style={{ fontSize: 23 }}>연습 환경 확인</h1>
     <div className="sub">필요한 항목만 확인해도 괜찮아요. 기타가 없다면 다음에 입력을 확인할 수 있어요.</div>
-    <MicrophoneSetup />
-    <CameraSetup />
+    <MicrophoneSetup paused={paused} />
+    <CameraSetup paused={paused} />
     <button className="btn" onClick={() => go('home')}>확인 마치기</button>
   </div>;
 }

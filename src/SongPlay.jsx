@@ -53,7 +53,7 @@ export function summarizeSong(list) {
   return { played, scored: score !== null, score, beatAcc, chordAcc, secs, trans, coverage };
 }
 
-export function SongPlay({ s, update, go, params }) {
+export function SongPlay({ s, update, go, params, paused = false }) {
   const [tempo, setTempo] = useState(40);
   const [phase, setPhase] = useState('wait'); // wait | play | pause
   const [bar, setBar] = useState(0);
@@ -66,12 +66,20 @@ export function SongPlay({ s, update, go, params }) {
   const [activeJudge, setActiveJudge] = useState(null);
   const judgeMode = activeJudge || s.panel.judge;
   const background = usePracticePause(phase === 'play');
-  const suspended = exit || background.paused || inputLost;
+  const suspended = paused || exit || background.paused || inputLost;
   const [quiet, setQuiet] = useState(false);
   const scoreView = useRef(null);
   const el = useRef(0); const hits = useRef([]); const out = useRef([]); const spectrum = useMemo(() => createBarSpectrum(), []); const metroRef = useRef(false); metroRef.current = metro;
   const back = (params && params.back) || 'learn';
+  const startLogged = useRef(false);
   const beatMs = 60000 / ((SP.bpm * tempo) / 100) / s.panel.speed;
+  const previousBeatMs = useRef(beatMs);
+  useEffect(() => {
+    if (previousBeatMs.current === beatMs) return;
+    previousBeatMs.current = beatMs;
+    el.current = out.current.length * 4 * beatMs; hits.current = []; spectrum.clear();
+    setBar(Math.min(out.current.length, BARS.length - 1)); setBeat(0);
+  }, [beatMs]);
   useEffect(() => {
     if (!inputLost && !background.paused) return;
     el.current = out.current.length * 4 * beatMs; hits.current = []; spectrum.clear();
@@ -120,7 +128,7 @@ export function SongPlay({ s, update, go, params }) {
   useEffect(() => {
     if (phase !== 'play' || suspended) return undefined;
     const stop = micOn ? makeOnsetDetector(() => hits.current.push(el.current)) : () => {};
-    if (!out.current.length && el.current === 0) logEvent('songplay_start', { tempo, mic: !!micOn, judge: judgeMode });
+    if (!startLogged.current) { startLogged.current = true; logEvent('songplay_start', { tempo, mic: !!micOn, judge: judgeMode }); }
     let last = performance.now(); let lastBeat = Math.floor(el.current / beatMs);
     const judge = (i) => {
       const mode = judgeMode; const prevDiff = i > 0 && BARS[i].chord !== BARS[i - 1].chord;
@@ -156,7 +164,7 @@ export function SongPlay({ s, update, go, params }) {
       if (cur >= BARS.length) { clearInterval(id); stop(); finish(out.current); }
     }, 40);
     return () => { clearInterval(id); stop(); };
-  }, [phase, suspended]);
+  }, [phase, suspended, beatMs]);
 
   const end = () => { if (!out.current.length) { setExit(true); return; } setPhase('pause'); finish(out.current); };
   const lastRes = res.length ? res[res.length - 1] : null; const lastBar = res.length ? BARS[res.length - 1] : null;

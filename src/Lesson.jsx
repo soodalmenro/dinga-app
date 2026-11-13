@@ -260,7 +260,7 @@ function LiveCam({ stream, cam, note, retry }) {
   );
 }
 
-export default function Lesson({ s, update, target, go }) {
+export default function Lesson({ s, update, target, go, paused = false }) {
   const lesson = lessonsFor(s).find((l) => l.id === target.lesson);
   const def = target.custom || lesson.parts[target.part];
   const idea = s.panel.variant === 'idea';
@@ -276,7 +276,7 @@ export default function Lesson({ s, update, target, go }) {
   const start = useRef(Date.now());
   const pausedTime = useRef(0);
   const pausedAt = useRef(null);
-  const suspended = exit || stuck || background.paused || inputLost;
+  const suspended = paused || exit || stuck || background.paused || inputLost;
   const speed = s.panel.speed;
   const elapsed = () => Math.floor((((pausedAt.current ?? Date.now()) - start.current - pausedTime.current) / 1000) * speed);
   useEffect(() => {

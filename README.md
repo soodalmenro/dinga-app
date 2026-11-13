@@ -129,6 +129,7 @@ node qa/repeated-use.cjs
 node qa/practice-soak.cjs
 node qa/recovery-layout.cjs
 node qa/motion-accessibility.cjs
+node qa/evaluation-pause.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.

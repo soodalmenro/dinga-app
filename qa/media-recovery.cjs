@@ -88,6 +88,7 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
     await page.getByText('모의 판정으로 진행해요',{exact:true}).waitFor();await button(page,'시작하기').click();
     await page.getByRole('heading',{name:'전환 연습 결과',exact:true}).waitFor();
     const result=await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')).song.last);assert.equal(result.judge,'random');assert.equal(result.bars.length,8);
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-log')).filter(e=>e.type==='song_start').length),2,'explicit simulation conversion starts a new attempt');
     console.log('PASS eight-bar no-mic recovery restarts with explicit simulated provenance');
    }finally{await page.close();}
    page=await open(browser,url,{resume:{lesson:'em',part:0,step:1}});

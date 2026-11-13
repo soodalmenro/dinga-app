@@ -91,14 +91,15 @@ function Home({ s, go }) {
   );
 }
 
-function Attend({ s, update, go }) {
+function Attend({ s, update, go, paused = false }) {
+  const pauseRef = useRef(paused); pauseRef.current = paused;
   const microphone = useMicrophone();
   const { micOn, skipMic, inputLost } = microphone;
   const [phase, setPhase] = useState('ask'); // ask | listen | fail | denied | done
   const [acc, setAcc] = useState(0); // 소리가 난 시간(초)
   const [round, setRound] = useState(0);
   const finish = useCallback((method) => {
-    if (method === 'manual') skipMic();
+    skipMic();
     update((d) => { const t = today(d); if (!attendedOn(d, t)) d.attendances.push({ date: t, method }); });
     logEvent('attend', { method });
     setPhase('done'); sfx.done();
@@ -113,7 +114,7 @@ function Attend({ s, update, go }) {
     let raf = 0; let last = performance.now(); let sum = 0; let observedMs = 0;
     const loop = (now) => {
       const delta = now - last; last = now;
-      if (document.hidden || delta > 250 || mic.state !== 'on') { raf = requestAnimationFrame(loop); return; }
+      if (pauseRef.current || document.hidden || delta > 250 || mic.state !== 'on') { raf = requestAnimationFrame(loop); return; }
       observedMs += delta;
       const dt = delta / 1000;
       if (mic.level() > threshold()) { sum += dt; setAcc(sum); }
@@ -126,10 +127,10 @@ function Attend({ s, update, go }) {
   }, [phase, round, inputLost, micOn]);
   useEffect(() => { if (inputLost) setAcc(0); }, [inputLost]);
   useEffect(() => {
-    if (phase !== 'done') return undefined;
+    if (phase !== 'done' || paused) return undefined;
     const id = setTimeout(() => (s.resume ? go('lesson', { ...s.resume, key: Date.now() }) : go('learn')), 2000 / s.panel.speed);
     return () => clearTimeout(id);
-  }, [phase]);
+  }, [phase, paused]);
 
   if (phase === 'done') {
     return (
@@ -449,6 +450,7 @@ function Panel({ s, update, setS, close, go }) {
       <div className="panel-row"><span>단계 건너뛰기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-skip')); close(); }}>다음</button></div>
       <div className="panel-row"><span>표정 고정</span><select value={s.panel.mood} onChange={(e) => set('mood', e.target.value)}><option value="auto">자동</option>{Object.entries(content.moodNames).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
       <div className="panel-row"><span>속도</span><select value={s.panel.speed} onChange={(e) => set('speed', Number(e.target.value))}><option value="1">×1</option><option value="3">×3</option></select></div>
+      <div className="sub" style={{ fontSize: 11 }}>곡·전환 연습 중 속도를 바꾸면 완료한 마디는 유지하고 현재 마디부터 다시 시작해요.</div>
       <div className="panel-row"><span>곡 판정</span><select value={s.panel.judge} onChange={(e) => set('judge', e.target.value)}><option value="mic">마이크 소리</option><option value="random">랜덤</option><option value="allok">모두 성공</option><option value="hard">전환 어려움</option></select></div>
       <div className="panel-row"><span>자세 결과 (PRD 원본)</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="sim">시뮬레이션</option><option value="self">참가자가 직접 선택</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>오늘 {today(s)} · 소리 기준값 {threshold()}</div>
@@ -510,14 +512,14 @@ export default function App() {
   }, []);
   const openApp = (from) => { logEvent('widget_open', { from, mood: mood(s) }); setSplash('show'); go('home'); setTimeout(() => setSplash('leave'), 1500); setTimeout(() => setSplash('done'), 1850); };
   const { route, params } = nav;
-  const p = { s, update, go };
+  const p = { s, update, go, paused: panel };
   return (
     <div className="app" ref={appRef}>
       {storageError && <div className="storage-notice" role="alert">이 브라우저에 기록을 저장할 수 없어요. 창을 닫기 전에 평가 패널에서 행동 기록을 복사해 주세요. <button style={{ textDecoration: 'underline', minHeight: 44 }} onClick={() => setStorageError(!save(s))}>저장 다시 시도</button></div>}
       {route === 'phone' && <Phone s={s} open={openApp} />}
       {route === 'home' && <Home {...p} />}
       {route === 'attend' && <Attend {...p} />}
-      {route === 'setup' && <PracticeSetup go={go} />}
+      {route === 'setup' && <PracticeSetup go={go} paused={panel} />}
       {route === 'learn' && <Learn {...p} params={params} />}
       {route === 'lesson' && <Lesson key={params.key} {...p} target={params} />}
       {route === 'song' && <Song key={params.key} {...p} params={params} />}
