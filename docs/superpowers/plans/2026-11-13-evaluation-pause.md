@@ -17,7 +17,7 @@
 ## Tasks
 - [x] RED→GREEN:12bar/8bar progress, legacy capture countdown, attendance accumulation and environment measurement behind evaluation panel.
 - [x] Integrate panel pause with route state, preserve attendance across panel close and explicit recovery; retain existing panel actions.
-- [ ] Relevant regression, full QA and builds; final read-only review; document and deploy through existing flow.
+- [x] Relevant regression, full QA and builds; final read-only review; document and deploy through existing flow.
 
 ## Ledger
 - Ruling: existing checkout on feature branch, authorized main→Vercel flow. No hardware prerequisite.
@@ -33,3 +33,5 @@
 - Final build assets:index-BkCDOlbI.js / index-BHK6GL20.css. Local built smoke exit0 checks JS/CSS, report/JSON, microphone recovery, reduced motion and deployed-style panel pause/rate/start logging. Final media recovery5 pass including explicit conversion generating a second legitimate start. Full140 and affected quality/chord reporting still running.
 
 - Final verification complete before rollout:9 panel cases exit0; full140/0 on final index-BkCDOlbI.js; final media5/quality10/chord report browser exit0; both builds and independent review done. Built artifact smoke including panel/rate/logging passes.
+
+- Rollout verified:269774b, Ready deployment dinga-2mi6ouuqr-hci24.vercel.app. Production dinga-app.vercel.app smoke exit0 verifies index-BkCDOlbI.js / index-BHK6GL20.css, report/JSON, microphone recovery, reduced motion, evaluation-panel pause, rate-change bar preservation and one start per attempt. All tasks complete; real hardware tests remain last.
