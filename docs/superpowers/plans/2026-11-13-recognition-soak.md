@@ -25,7 +25,7 @@
 - [x] 1. Reproduce watcher continuity gaps/frozen frames/invalid dimensions; minimally fix confirmed failures; preserve valid hold, occlusion reset, handedness and framing.
 - [x] 2. Exercise repeated browser practice/setup/recovery and completion/exit cycles; assert all tracks/contexts released and no duplicated completion records. Fix reproduced failures with RED→GREEN.
 - [x] 3. Check mobile layout/orientation/enlarged text and chord weak/boundary controls. Update handoff, run relevant regression/full QA and both builds, final read-only review.
-- [ ] 4. Commit, integrate and deploy; verify exact production bundle and core/recovery/export flow. Record results and limitations.
+- [x] 4. Commit, integrate and deploy; verify exact production bundle and core/recovery/export flow. Record results and limitations.
 
 ## Ledger
 - Ruling: reuse the current clean checkout on codex/recognition-soak; no additional worktree or repeated approval needed for established authorized workflow.
@@ -40,3 +40,5 @@
 - Final source:300000ms real-time soak passed,1186 inference calls with fixed2 streams/2 live tracks/1 input context/1 model/maximum1 concurrent inference, then all captures closed. Full built-app QA140/0, both builds (index-B3toWdB0.js), local bundle/export/recovery smoke, pose reliability, camera retry synchronization, environment, quality10, media recovery5 and repeated UI15 pass. Mobile12 final run passed.
 
 - Final mobile12 and recovery orientation/text-size3 pass; screenshots reviewed for narrow/landscape recovery. No additional product change justified by these checks. Real device performance and guitar recognition remain last.
+
+- Rollout verified: app commit5ebc7bf, Ready production deployment dinga-pyj58zwaa-hci24.vercel.app with dinga-app.vercel.app alias. Production smoke exit0 verifies exact index-B3toWdB0.js, setup fallback, song/report, participant JSON/versioned diagnostics, track loss→retry→explicit continue. Remaining actual phone/guitar validation is intentionally last.
