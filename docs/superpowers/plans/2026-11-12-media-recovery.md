@@ -42,7 +42,7 @@
 
 ### Task 4: Review and rollout
 - [x] Targeted and existing quality/device/pose/storage/export/full QA, both builds, fresh review and documentation.
-- [ ] Commit→existing main→Vercel; verify bundle and core/user recovery flow.
+- [x] Commit→existing main→Vercel; verify bundle and core/user recovery flow.
 
 ## Ledger
 - Ruling: use existing checkout on feature branch and authorized rollout flow, with no repeated approval ceremony.
@@ -53,4 +53,6 @@
 - Review: final read-only lifecycle review found no additional confirmed important issues after combining visibility and microphone recovery acknowledgment.
 - Verification 2026-11-13: core lifecycle, invalid pose, bar spectrum, calibration and export unit contracts pass; camera loss/capture/model-load tests pass; full built-app QA140/0 and local built-bundle smoke (including reconnection) pass. Both builds succeed, asset index-DFIhbvOW.js.
 
-- Final focused run: quality10, pose reliability, environment preparation, participant export/retention, storage, mobile12, media recovery5, continuous audio20, uncertain-report browser and transient audio10 all pass (exit0). Rollout checkbox remains pending until remote verification.
+- Final focused run: quality10, pose reliability, environment preparation, participant export/retention, storage, mobile12, media recovery5, continuous audio20, uncertain-report browser and transient audio10 all pass (exit0). 
+
+- Rollout verified 2026-11-13: application commit f571bad, deployment dinga-bvz7kyzn6-hci24.vercel.app Ready with dinga-app.vercel.app alias. Production smoke exit0: exact index-DFIhbvOW.js bundle, setup fallback, song/report, downloaded participant JSON/versioned diagnostics and microphone track loss→retry→explicit resume. Real phone/guitar accuracy remains unverified by design.
