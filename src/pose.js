@@ -3,6 +3,7 @@
 // 기준값은 content.json poseThresholds. 검증된 수치가 아니라 시작값이므로 실제 폰과 기타로 맞춰야 한다.
 import content from './content.json';
 import { cameraFraming } from './cameraFraming.js';
+import { validLandmark } from './landmarkValidity.js';
 
 const BASE = `${import.meta.env.BASE_URL}pose/`;
 let pose = null; let loading = null; let handler = null; let sending = null;
@@ -53,13 +54,14 @@ export function initPose() {
 const deg = (r) => (r * 180) / Math.PI;
 // 관절 좌표(0~1)로 자세 값을 잰다. w, h는 영상 크기
 export function measure(lm, hand, w, h) {
+  const out = { wrist: null, tilt: null, neck: null };
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return out;
   const P = (i) => {
     const point = lm && lm[i];
-    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return { x: 0, y: 0, v: 0 };
-    return { x: point.x * w, y: point.y * h, v: point.visibility == null ? 1 : point.visibility };
+    if (!validLandmark(point)) return { x: 0, y: 0, v: 0 };
+    return { x: point.x * w, y: point.y * h, v: point.visibility === undefined ? 1 : point.visibility };
   };
   const S = hand === 'right' ? { el: 14, wr: 16, pk: 18, ix: 20 } : { el: 13, wr: 15, pk: 17, ix: 19 };
-  const out = { wrist: null, tilt: null, neck: null };
   const el = P(S.el); const wr = P(S.wr); const ix = P(S.ix); const pk = P(S.pk);
   if (el.v > 0.5 && wr.v > 0.5 && ix.v > 0.4 && pk.v > 0.4) {
     const fx = wr.x - el.x; const fy = wr.y - el.y; // 팔뚝 방향
@@ -79,8 +81,8 @@ export function measure(lm, hand, w, h) {
 }
 export function judge(m, th = content.poseThresholds) {
   const bad = [];
-  if (m.wrist != null && m.wrist > th.wristDeg) bad.push('wrist');
-  if ((m.tilt != null && m.tilt > th.tiltDeg) || (m.neck != null && m.neck < th.neckRatio)) bad.push('shoulder');
+  if (Number.isFinite(m?.wrist) && m.wrist > th.wristDeg) bad.push('wrist');
+  if ((Number.isFinite(m?.tilt) && m.tilt > th.tiltDeg) || (Number.isFinite(m?.neck) && m.neck < th.neckRatio)) bad.push('shoulder');
   return bad;
 }
 

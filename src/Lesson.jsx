@@ -8,6 +8,8 @@ import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture } from './pose.js';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
+import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
+import { observeMediaStream, mediaStreamIsLive } from './mediaLifecycle.js';
 
 const PART_SECONDS = 180; // 파트 하나 약 3분
 const TRANSITION_SECONDS = 120; // 전환 연습 약 2분
@@ -41,9 +43,10 @@ function Posture({ lesson, s, update, next, speed, running }) {
   const video = useRef(null);
   const stream = useRef(null);
   const openRequest = useRef(0);
+  const stopWatch = useRef(null);
   const focus = lesson ? lesson.postureFocus : 'all';
   const tip = content.postureTips[focus];
-  const stop = () => { openRequest.current += 1; if (stream.current) stream.current.getTracks().forEach((t) => t.stop()); stream.current = null; };
+  const stop = () => { openRequest.current += 1; if (stopWatch.current) stopWatch.current(); stopWatch.current = null; if (stream.current) stream.current.getTracks().forEach((t) => t.stop()); stream.current = null; };
   const open = async () => {
     stop();
     setPhase('pre');
@@ -53,6 +56,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
       if (request !== openRequest.current) { st.getTracks().forEach((track) => track.stop()); return; }
       stream.current = st;
+      stopWatch.current = observeMediaStream(st, () => { stop(); setCameraReady(false); setPhase('denied'); });
       setCameraReady(true);
       setPhase('pre');
     } catch (e) { if (request === openRequest.current) { logEvent('camera_denied'); setPhase('denied'); } }
@@ -67,6 +71,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
   useEffect(() => {
     if (phase !== 'count' || !running) return undefined;
     if (count === 0) {
+      if (!mediaStreamIsLive(stream.current)) { stop(); setCameraReady(false); setPhase('denied'); return undefined; }
       const v = video.current; let url = null;
       try { const c = document.createElement('canvas'); c.width = v.videoWidth || 480; c.height = v.videoHeight || 640; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); url = c.toDataURL('image/jpeg', 0.7); } catch (e) {}
       stop(); setShot(url); // 사진은 이 화면에서만 쓰고 저장하지 않는다
@@ -88,6 +93,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
     return (<>
       <div className="cam"><div className="msg">카메라를 쓸 수 없어요</div></div>
       <div className="card soft"><div className="cap">자세 확인을 건너뛰고 연습할게요</div><div className="sub">카메라를 허용하면 다음부터 자세를 볼 수 있어요</div></div>
+      <button className="btn line" onClick={open}>카메라 다시 켜기</button>
       <button className="btn" onClick={next}>다음 단계로</button>
     </>);
   }
@@ -265,12 +271,12 @@ export default function Lesson({ s, update, target, go }) {
   const [done, setDone] = useState(false);
   const background = usePracticePause(!done);
   const microphone = useMicrophone();
-  const { micOn, skipMic } = microphone;
+  const { micOn, skipMic, inputLost } = microphone;
   const [tbar, setTbar] = useState(0);
   const start = useRef(Date.now());
   const pausedTime = useRef(0);
   const pausedAt = useRef(null);
-  const suspended = exit || stuck || background.paused;
+  const suspended = exit || stuck || background.paused || inputLost;
   const speed = s.panel.speed;
   const elapsed = () => Math.floor((((pausedAt.current ?? Date.now()) - start.current - pausedTime.current) / 1000) * speed);
   useEffect(() => {
@@ -319,7 +325,7 @@ export default function Lesson({ s, update, target, go }) {
   // 연주 단계를 벗어나거나 파트를 끝내면 해당 스트림을 해제한다.
   useEffect(() => {
     if (!live) { setCam('off'); return undefined; }
-    let dead = false; let acquired = null;
+    let dead = false; let acquired = null; let stopCameraWatch;
     setCam('off');
     (async () => {
       try {
@@ -327,12 +333,19 @@ export default function Lesson({ s, update, target, go }) {
         if (dead) { st.getTracks().forEach((t) => t.stop()); return; }
         acquired = st;
         camStream.current = st;
+        stopCameraWatch = observeMediaStream(st, () => {
+          if (dead || camStream.current !== st) return;
+          if (stopCameraWatch) stopCameraWatch();
+          st.getTracks().forEach((track) => track.stop()); camStream.current = null;
+          setCam('denied'); logEvent('camera_interrupted', { where: 'live' });
+        });
         if (eye.current) { eye.current.srcObject = st; eye.current.play().catch(() => {}); }
         setCam('on');
       } catch (e) { if (!dead) { logEvent('camera_denied', { where: 'live' }); setCam('denied'); } }
     })();
     return () => {
       dead = true;
+      if (stopCameraWatch) stopCameraWatch();
       if (acquired) acquired.getTracks().forEach((track) => track.stop());
       if (camStream.current === acquired) camStream.current = null;
     };
@@ -471,8 +484,8 @@ export default function Lesson({ s, update, target, go }) {
       {step.type === 'play' && <Play {...props} />}
       {step.type === 'beat' && <Beat key={idx} {...props} />}
       {step.type === 'blind' && <Blind {...props} />}
-      {micOn === null && <button className="textbtn" onClick={skipMic}>마이크 없이 계속하기</button>}
-      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} params={{ pair: step.pair, onDone: next }} />}
+      {micOn === null && !inputLost && <button className="textbtn" onClick={skipMic}>마이크 없이 계속하기</button>}
+      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} restartCurrentBar={background.paused} params={{ pair: step.pair, onDone: next }} />}
       {step.type === 'transition' && !idea && <Transition pair={step.pair} next={next} speed={speed} setBarProgress={setTbar} running={!suspended} />}
       {exit && (
         <Modal onClose={() => setExit(false)}>
@@ -492,7 +505,8 @@ export default function Lesson({ s, update, target, go }) {
           <button className="btn line" onClick={() => { logEvent('skip', { kind: step.type }); setStuck(false); next(); }}>이 단계 건너뛰기</button>
         </Modal>
       )}
-      {background.paused && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 단계부터 이어서 연습해요.</div><button className="btn" onClick={background.resume}>계속 연습하기</button></Modal>}
+      {background.paused && !inputLost && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 단계부터 이어서 연습해요.</div><button className="btn" onClick={background.resume}>계속 연습하기</button></Modal>}
+      {!exit && !stuck && <MicrophoneRecovery microphone={microphone} onExit={() => setExit(true)} onResume={background.resume} withoutMicHint={step.type === 'transition' ? '마이크 없이 진행하면 이번 전환 연습은 모의 판정으로 처음부터 다시 시작해요.' : undefined} />}
     </div>
   </>);
 }

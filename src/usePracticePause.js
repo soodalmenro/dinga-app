@@ -7,7 +7,7 @@ export function usePracticePause(active = true) {
   useEffect(() => {
     if (!active) return undefined;
     const onVisibility = () => {
-      if (document.hidden) { pauseRef.current = true; pausedAt.current = Date.now(); setPaused(true); }
+      if (document.hidden && !pauseRef.current) { pauseRef.current = true; pausedAt.current = Date.now(); setPaused(true); }
     };
     document.addEventListener('visibilitychange', onVisibility);
     onVisibility();

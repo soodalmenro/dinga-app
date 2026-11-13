@@ -4,23 +4,26 @@ import { content, mic, makeOnsetDetector, today, sfx, logEvent } from './lib.js'
 import { Piki, Modal, Confetti } from './ui.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
+import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 
 const SONG = content.songChart.bars;
 const pairBars = (p) => [p[0], p[0], p[1], p[1], p[0], p[0], p[1], p[1]];
 const MARK = { ok: '✓', late: '늦음', none: '–' };
 
-export function Song({ s, update, go, params, microphone, paused = false }) {
+export function Song({ s, update, go, params, microphone, paused = false, restartCurrentBar = false }) {
   const pair = params && params.pair; const BARS = pair ? pairBars(pair) : SONG; const emb = params && params.onDone; // emb = 레슨 안 전환 단계
   const [tempo, setTempo] = useState(80);
   const [phase, setPhase] = useState('wait'); // wait | play
   const background = usePracticePause(!emb && phase === 'play');
-  const suspended = paused || background.paused;
   const [bar, setBar] = useState(0);
   const [beat, setBeat] = useState(0);
   const [res, setRes] = useState([]);
   const [exit, setExit] = useState(false);
   const ownMicrophone = useMicrophone(!microphone);
-  const { micOn, skipMic } = microphone || ownMicrophone;
+  const input = microphone || ownMicrophone;
+  const { micOn, skipMic, inputLost } = input;
+  const interrupted = useRef(false);
+  const suspended = paused || background.paused || inputLost || (interrupted.current && micOn === false);
   const [quiet, setQuiet] = useState(false);
   const configuredJudge = s.panel.judge;
   const [activeJudge, setActiveJudge] = useState(null);
@@ -30,6 +33,23 @@ export function Song({ s, update, go, params, microphone, paused = false }) {
   const results = useRef([]);
   const speed = s.panel.speed;
   const beatMs = 60000 / ((content.songChart.bpm * tempo) / 100) / speed;
+  useEffect(() => {
+    if (inputLost && !interrupted.current) {
+      interrupted.current = true; elapsed.current = results.current.length * 4 * beatMs; hits.current = [];
+      setBar(Math.min(results.current.length, 7)); setBeat(0);
+    } else if (!inputLost && interrupted.current) {
+      interrupted.current = false;
+      if (micOn === false) {
+        results.current = []; hits.current = []; elapsed.current = 0;
+        setRes([]); setBar(0); setBeat(0); setPhase('wait'); setActiveJudge(null); setQuiet(false);
+      }
+    }
+  }, [inputLost, micOn]);
+  useEffect(() => {
+    if (!background.paused && !restartCurrentBar) return;
+    elapsed.current = results.current.length * 4 * beatMs; hits.current = [];
+    setBar(Math.min(results.current.length, 7)); setBeat(0);
+  }, [background.paused, restartCurrentBar]);
 
   // 대기: 첫 소리가 나면 시작
   useEffect(() => {
@@ -60,7 +80,7 @@ export function Song({ s, update, go, params, microphone, paused = false }) {
       const now = performance.now();
       const delta = now - lastTick;
       lastTick = now;
-      if (background.pauseRef.current || document.hidden || delta > 250) return;
+      if (background.pauseRef.current || document.hidden || delta > 250 || (micOn && mic.state !== 'on')) return;
       elapsed.current += delta;
       const b = Math.floor(elapsed.current / beatMs);
       const curBar = Math.floor(b / 4);
@@ -98,7 +118,7 @@ export function Song({ s, update, go, params, microphone, paused = false }) {
       </div>
       <div className="grow"><Piki name="play" size={emb ? 110 : 170} /></div>
       {phase === 'wait' && micOn === false && <button className="btn" onClick={startManual}>시작하기</button>}
-      {phase === 'wait' && micOn === null && !emb && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}
+      {phase === 'wait' && micOn === null && !inputLost && !emb && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}
       <div className="card">
         <div className="row between"><b style={{ fontSize: 13 }}>템포</b><b style={{ fontSize: 13, color: 'var(--od)' }}>{tempo}% ({Math.round((content.songChart.bpm * tempo) / 100)} BPM)</b></div>
         <input className="tempo-slider" aria-label="연주 템포" type="range" min="40" max="125" step="5" value={tempo} style={{ '--tempo-fill': `${((tempo - 40) / 85) * 100}%` }} disabled={phase !== 'wait'} onChange={(e) => setTempo(Number(e.target.value))} />
@@ -111,7 +131,8 @@ export function Song({ s, update, go, params, microphone, paused = false }) {
           <div className="two"><button className="btn line" onClick={() => go((params && params.back) || 'learn')}>나가기</button><button className="btn" onClick={() => setExit(false)}>계속하기</button></div>
         </Modal>
       )}
-      {background.paused && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 마디부터 이어서 연주해요.</div><button className="btn" onClick={background.resume}>계속 연주하기</button></Modal>}
+      {background.paused && !inputLost && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 마디부터 이어서 연주해요.</div><button className="btn" onClick={background.resume}>계속 연주하기</button></Modal>}
+      {!emb && !exit && <MicrophoneRecovery microphone={input} onExit={() => setExit(true)} onResume={background.resume} withoutMicHint="마이크 없이 진행하면 이번 8마디는 모의 판정으로 처음부터 다시 시작해요." />}
     </div>
   );
 }

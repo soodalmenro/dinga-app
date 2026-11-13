@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const { chromium } = require('playwright');
 
 (async () => {
-  const browser = await chromium.launch({ channel: process.env.QA_BROWSER_CHANNEL });
+  const browser = await chromium.launch({ channel: process.env.QA_BROWSER_CHANNEL, args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] });
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 }, acceptDownloads: true });
     const errors = [];
@@ -51,5 +51,35 @@ const { chromium } = require('playwright');
     assert.ok(file.events.every((event) => event.bundle === expected));
     assert.deepEqual(errors, []);
     console.log('PASS deployed bundle, setup fallback, song/report, participant JSON and versioned diagnostics');
+    await page.close();
+    const recovery = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    recovery.on('pageerror', (error) => errors.push(error.message));
+    await recovery.addInitScript(() => {
+      const d = new Date();
+      const date = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+      localStorage.setItem('dinga-v1', JSON.stringify({ attendances: [{ date, method: 'manual' }], panel: { alert: 'off' }, resume: { lesson: 'em', part: 0, step: 1 } }));
+      window.smokeAudio = [];
+      const acquire = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = async (constraints) => {
+        if (!constraints.audio) throw new DOMException('Denied', 'NotAllowedError');
+        const stream = await acquire(constraints); window.smokeAudio.push(stream); return stream;
+      };
+    });
+    await recovery.goto(process.env.QA_URL || 'https://dinga-app.vercel.app/');
+    assert.equal(await recovery.locator('script[type="module"]').getAttribute('src'), expected);
+    await recovery.locator('.widget').click();
+    await recovery.locator('.splash').waitFor({ state: 'detached' });
+    await recovery.getByRole('button', { name: '이어서 연습하기 ›', exact: true }).click();
+    await recovery.waitForFunction(() => window.smokeAudio.length > 0);
+    await recovery.evaluate(() => { const track = window.smokeAudio.at(-1).getAudioTracks()[0]; track.stop(); track.dispatchEvent(new Event('ended')); });
+    await recovery.getByRole('heading', { name: '마이크 연결이 끊겼어요', exact: true }).waitFor();
+    await recovery.getByRole('button', { name: '마이크 다시 연결', exact: true }).click();
+    await recovery.getByRole('heading', { name: '마이크를 다시 연결했어요', exact: true }).waitFor();
+    assert.equal(await recovery.locator('.dots i.on').count(), 0);
+    await recovery.getByRole('button', { name: '연습 계속하기', exact: true }).click();
+    await recovery.getByRole('heading', { name: '마이크를 다시 연결했어요', exact: true }).waitFor({ state: 'detached' });
+    assert.equal(await recovery.evaluate(() => window.smokeAudio.length), 2);
+    assert.deepEqual(errors, []);
+    console.log('PASS deployed microphone track loss, reconnection and explicit resume');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

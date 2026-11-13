@@ -1,11 +1,13 @@
 // 곡 연습(가사 위에 코드가 흐르는 화면)과 곡 연습 리포트
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, threshold, today, sfx, logEvent } from './lib.js';
-import { analyzeChord } from './chordRecognition.js';
+import { analyzeChord, CHORD_CLASSIFIER_VERSION } from './chordRecognition.js';
+import { createBarSpectrum } from './barSpectrum.js';
 import { songDiagnostics } from './evaluationExport.js';
 import { Piki, Modal, Confetti } from './ui.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
+import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 
 const SP = content.songPractice;
 // 코드 하나 = 한 마디(4박). 화면 순서대로 편 목록
@@ -59,16 +61,22 @@ export function SongPlay({ s, update, go, params }) {
   const [res, setRes] = useState([]); // [{t:'ok'|'late'|'none', c:true|false}]
   const [exit, setExit] = useState(false);
   const [metro, setMetro] = useState(false);
-  const { micOn, skipMic } = useMicrophone();
+  const microphone = useMicrophone();
+  const { micOn, skipMic, inputLost } = microphone;
   const [activeJudge, setActiveJudge] = useState(null);
   const judgeMode = activeJudge || s.panel.judge;
   const background = usePracticePause(phase === 'play');
-  const suspended = exit || background.paused;
+  const suspended = exit || background.paused || inputLost;
   const [quiet, setQuiet] = useState(false);
   const scoreView = useRef(null);
-  const el = useRef(0); const hits = useRef([]); const out = useRef([]); const chroma = useRef(new Array(12).fill(0)); const metroRef = useRef(false); metroRef.current = metro;
+  const el = useRef(0); const hits = useRef([]); const out = useRef([]); const spectrum = useMemo(() => createBarSpectrum(), []); const metroRef = useRef(false); metroRef.current = metro;
   const back = (params && params.back) || 'learn';
   const beatMs = 60000 / ((SP.bpm * tempo) / 100) / s.panel.speed;
+  useEffect(() => {
+    if (!inputLost && !background.paused) return;
+    el.current = out.current.length * 4 * beatMs; hits.current = []; spectrum.clear();
+    setBar(Math.min(out.current.length, BARS.length - 1)); setBeat(0);
+  }, [inputLost, background.paused]);
 
   useEffect(() => {
     if (phase !== 'play') return;
@@ -122,7 +130,8 @@ export function SongPlay({ s, update, go, params }) {
       if (!micOn) return { t: 'unmeasured', c: null };
       const a = i * 4 * beatMs; const b = a + 4 * beatMs;
       const inBar = hits.current.filter((t) => t >= a - beatMs * 0.25 && t < b - beatMs * 0.25);
-      const decision = analyzeChord(chroma.current, content.chordNotes); chroma.current = new Array(12).fill(0);
+      const captured = spectrum.take(i);
+      const decision = captured.samples ? analyzeChord(captured.chroma, content.chordNotes) : { chord: null, reason: 'insufficient-window', version: CHORD_CLASSIFIER_VERSION };
       if (!inBar.length) return { t: 'none', c: false };
       return { t: inBar[0] - a > beatMs * 0.6 ? 'late' : 'ok', c: decision.chord === null ? null : decision.chord === BARS[i].chord, detectedChord: decision.chord, reason: decision.reason, classifier: decision.version };
     };
@@ -130,10 +139,17 @@ export function SongPlay({ s, update, go, params }) {
       const now = performance.now();
       const delta = now - last;
       last = now;
-      if (background.pauseRef.current || document.hidden || delta > 250) return;
+      if (background.pauseRef.current || document.hidden || delta > 250 || (micOn && mic.state !== 'on')) return;
+      const level = micOn ? mic.level() : 0;
+      if (micOn && mic.state !== 'on') return;
       el.current += delta;
-      if (micOn && mic.level() > threshold() * 0.6) { const c = mic.chroma(); for (let k = 0; k < 12; k += 1) chroma.current[k] += c[k]; }
       const b = Math.floor(el.current / beatMs); const cur = Math.floor(b / 4);
+      if (micOn && cur < BARS.length) {
+        const start = cur * 4 * beatMs;
+        const firstOnset = hits.current.find((time) => time >= start - beatMs * 0.25 && time < start + 4 * beatMs - beatMs * 0.25);
+        spectrum.sample({ bar: cur, at: el.current, barStart: start, firstOnset, settleMs: mic.spectrumWindowMs(), level, threshold: threshold() * 0.6, chroma: () => mic.chroma() });
+        if (mic.state !== 'on') return;
+      }
       if (b !== lastBeat) { lastBeat = b; if (metroRef.current) sfx.tick(); }
       while (out.current.length < Math.min(cur, BARS.length)) out.current.push(judge(out.current.length));
       setRes([...out.current]); setBar(Math.min(cur, BARS.length - 1)); setBeat(b % 4);
@@ -188,9 +204,10 @@ export function SongPlay({ s, update, go, params }) {
           : <button onClick={() => setPhase(phase === 'play' ? 'pause' : 'play')}><i className="big">{phase === 'play' ? 'Ⅱ' : '▶'}</i>{phase === 'play' ? '일시정지' : '이어서'}</button>}
         <button onClick={end}><i>■</i>끝내기</button>
       </div>
-      {phase === 'wait' && micOn === null && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}
+      {phase === 'wait' && micOn === null && !inputLost && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}
       {metro && micOn && <div className="sub" style={{ fontSize: 12 }}>스피커 박자 소리가 연주로 감지될 수 있어요. 이어폰으로 들어 주세요.</div>}
-      {background.paused && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 마디부터 이어서 연주해요.</div><button className="btn" onClick={background.resume}>계속 연주하기</button></Modal>}
+      {background.paused && !inputLost && <Modal onClose={background.resume}><h1>연습을 잠시 멈췄어요</h1><div className="sub">준비되면 멈춘 마디부터 이어서 연주해요.</div><button className="btn" onClick={background.resume}>계속 연주하기</button></Modal>}
+      {!exit && <MicrophoneRecovery microphone={microphone} onExit={() => setExit(true)} onResume={background.resume} withoutMicHint="마이크 없이 이어가면 이후 마디는 측정 안 됨으로 기록해요." />}
       {exit && (
         <Modal onClose={() => setExit(false)}>
           <h1 style={{ fontSize: 20 }} className="tc">연주를 그만할까요?</h1>

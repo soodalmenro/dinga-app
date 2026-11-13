@@ -2,7 +2,7 @@ export const LOG_LIMIT = 4000;
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = (value, max = 200) => typeof value === 'string' && value.length <= max && !/^\s*(data:|blob:)/i.test(value);
 const chord = (value) => ['Em', 'G', 'C'].includes(value);
-const reasons = ['recognized', 'off-chord', 'ambiguous', 'missing-tones', 'silence', 'invalid', 'simulated', 'no-microphone', 'no-onset', 'unavailable'];
+const reasons = ['recognized', 'off-chord', 'ambiguous', 'missing-tones', 'silence', 'invalid', 'insufficient-window', 'simulated', 'no-microphone', 'no-onset', 'unavailable'];
 const validBundle = (value) => typeof value === 'string' && /^\/assets\/[a-zA-Z0-9_.-]+\.js$/.test(value);
 export function currentEvaluationBundle() {
   try {

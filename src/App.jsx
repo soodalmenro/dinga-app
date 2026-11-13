@@ -10,6 +10,7 @@ import { useMicrophone } from './useMicrophone.js';
 import PracticeSetup from './PracticeSetup.jsx';
 import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
 import { getLogStorageMode } from './lib.js';
+import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 
 const TABS = ['home', 'learn', 'practice', 'my'];
 
@@ -91,7 +92,8 @@ function Home({ s, go }) {
 }
 
 function Attend({ s, update, go }) {
-  const { micOn, skipMic } = useMicrophone();
+  const microphone = useMicrophone();
+  const { micOn, skipMic, inputLost } = microphone;
   const [phase, setPhase] = useState('ask'); // ask | listen | fail | denied | done
   const [acc, setAcc] = useState(0); // 소리가 난 시간(초)
   const [round, setRound] = useState(0);
@@ -107,11 +109,11 @@ function Attend({ s, update, go }) {
     setPhase(micOn ? 'listen' : 'denied');
   }, [micOn, phase]);
   useEffect(() => {
-    if (phase !== 'listen') return undefined;
+    if (phase !== 'listen' || inputLost || !micOn) return undefined;
     let raf = 0; let last = performance.now(); let sum = 0; let observedMs = 0;
     const loop = (now) => {
       const delta = now - last; last = now;
-      if (document.hidden || delta > 250) { raf = requestAnimationFrame(loop); return; }
+      if (document.hidden || delta > 250 || mic.state !== 'on') { raf = requestAnimationFrame(loop); return; }
       observedMs += delta;
       const dt = delta / 1000;
       if (mic.level() > threshold()) { sum += dt; setAcc(sum); }
@@ -121,7 +123,8 @@ function Attend({ s, update, go }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, round]);
+  }, [phase, round, inputLost, micOn]);
+  useEffect(() => { if (inputLost) setAcc(0); }, [inputLost]);
   useEffect(() => {
     if (phase !== 'done') return undefined;
     const id = setTimeout(() => (s.resume ? go('lesson', { ...s.resume, key: Date.now() }) : go('learn')), 2000 / s.panel.speed);
@@ -163,6 +166,7 @@ function Attend({ s, update, go }) {
         <button className="btn line" onClick={() => finish('manual')}>건너뛰기</button>
       </>)}
       {phase === 'denied' && <button className="btn" onClick={() => finish('manual')}>마이크 없이 출석하기</button>}
+      <MicrophoneRecovery microphone={microphone} onSkip={() => finish('manual')} onExit={() => go('home')} />
     </div>
   );
 }

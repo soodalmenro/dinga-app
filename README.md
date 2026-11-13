@@ -117,6 +117,12 @@ node qa/pose-framing.cjs
 node qa/practice-environment.cjs
 node qa/evaluation-export-unit.cjs
 node qa/evaluation-export-browser.cjs
+node qa/lifecycle-core.cjs
+node qa/pose-input-validity.cjs
+node qa/bar-spectrum-unit.cjs
+node qa/media-recovery.cjs
+node qa/camera-track-loss.cjs
+node qa/chord-transients.cjs
 ```
 
 Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지정한다. 전체 QA는 기본적으로 4173번 포트를 사용하며 `QA_URL`로 대상을 바꿀 수 있다. 마이크 거부 회귀 테스트는 빌드 결과를 임시 로컬 포트에서 열어 확인한다.
@@ -130,3 +136,5 @@ Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지�
 평가 패널에서 [참가자별 JSON 기록 회수](docs/EVALUATION_EXPORT.md)를 할 수 있다. 기존 전체 배열 복사도 유지하며 실패 시 수동 복사를 안내한다.
 
 배포 뒤 `node qa/deployed-smoke.cjs`로 운영 번들과 로컬 `dist`의 일치, 위젯→곡→리포트 경로를 확인할 수 있다. 먼저 `npm run build`를 실행한다. 새 브라우저 세션의 모의 입력을 사용하며 `QA_URL`로 대상 주소를 바꿀 수 있다.
+
+연습 중 장치 중단·명시적 재연결·화면 복귀와 새 분석 창의 코드 판정은 [입력 중단 복구](docs/MEDIA_RECOVERY.md)를 참고한다.

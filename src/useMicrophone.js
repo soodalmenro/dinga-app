@@ -5,18 +5,35 @@ import { mic } from './lib.js';
 export function useMicrophone(enabled = true) {
   const [micOn, setMicOn] = useState(mic.state === 'on' ? true : null);
   const generation = useRef(0);
+  const [attempt, setAttempt] = useState(0);
+  const [inputLost, setInputLost] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   useEffect(() => {
     if (!enabled) return undefined;
     const request = ++generation.current;
-    mic.start().then((ok) => {
-      if (generation.current === request) setMicOn(ok);
+    setRequesting(true);
+    const unsubscribe = mic.subscribe((state) => {
+      if (generation.current !== request) return;
+      if (state === 'interrupted') { setMicOn(null); setInputLost(true); setRequesting(false); }
     });
-    return () => { generation.current += 1; };
-  }, [enabled]);
+    mic.start().then((ok) => {
+      if (generation.current !== request) return;
+      setRequesting(false);
+      if (mic.state === 'interrupted') { setMicOn(null); setInputLost(true); }
+      else setMicOn(ok);
+    });
+    return () => { generation.current += 1; unsubscribe(); };
+  }, [enabled, attempt]);
   const skipMic = useCallback(() => {
     generation.current += 1;
     mic.stop();
     setMicOn(false);
+    setInputLost(false); setRequesting(false);
   }, []);
-  return { micOn, skipMic };
+  const retryMic = useCallback(() => {
+    generation.current += 1; mic.stop(); mic.prime();
+    setMicOn(null); setRequesting(true); setAttempt((value) => value + 1);
+  }, []);
+  const acknowledgeMic = useCallback(() => { if (mic.state !== 'on') return false; setInputLost(false); return true; }, []);
+  return { micOn, skipMic, inputLost, requesting, retryMic, acknowledgeMic };
 }

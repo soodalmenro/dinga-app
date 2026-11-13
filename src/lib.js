@@ -3,6 +3,7 @@ import content from './content.json';
 import { analyzeChord } from './chordRecognition.js';
 import { createInputProfiles, inputDeviceKey } from './inputCalibration.js';
 import { LOG_LIMIT, currentEvaluationBundle } from './evaluationExport.js';
+import { observeMediaStream, mediaStreamIsLive, createWakeLockController } from './mediaLifecycle.js';
 const inputProfiles = createInputProfiles();
 let activeDeviceId = null;
 
@@ -181,17 +182,43 @@ export function nextPart(s) {
 let ctx = null; let analyser = null; let stream = null; let buf = null; let wide = null; let fbuf = null;
 let micRequest = null;
 let micGeneration = 0;
+let stopInputWatch = null; let stopContextWatch = null;
+const micListeners = new Set();
+function setMicState(state) {
+  mic.state = state;
+  for (const listener of micListeners) { try { listener(state); } catch {} }
+}
+function disposeMicrophone() {
+  micGeneration += 1; micRequest = null;
+  if (stopInputWatch) stopInputWatch(); if (stopContextWatch) stopContextWatch();
+  stopInputWatch = null; stopContextWatch = null;
+  const oldStream = stream; const oldContext = ctx;
+  stream = null; ctx = null; analyser = null; wide = null; activeDeviceId = null;
+  if (oldStream) oldStream.getTracks().forEach((track) => track.stop());
+  if (oldContext) oldContext.close().catch(() => {});
+}
+function interruptMicrophone(reason) {
+  if (mic.state !== 'on') return;
+  disposeMicrophone(); inputProfiles.clear();
+  setMicState('interrupted'); logEvent('mic_interrupted', { reason });
+}
+function microphoneAlive() {
+  if (mic.state !== 'on') return false;
+  if (!mediaStreamIsLive(stream) || ctx?.state !== 'running') { interruptMicrophone('input'); return false; }
+  return true;
+}
 export const mic = {
-  state: 'idle', // idle | on | denied
+  state: 'idle', // idle | on | denied | interrupted
+  subscribe(listener) { micListeners.add(listener); return () => micListeners.delete(listener); },
   // 아이폰은 사용자가 화면을 누른 순간에만 소리 장치를 깨울 수 있다. 누를 때마다 불러 둔다
   prime() {
     try {
       ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     } catch (e) {}
   },
   async start() {
-    if (this.state === 'on') return true;
+    if (this.state === 'on' && microphoneAlive()) return true;
     if (micRequest) return micRequest;
     const generation = micGeneration;
     micRequest = (async () => {
@@ -204,21 +231,26 @@ export const mic = {
         stream = acquired;
         activeDeviceId = inputDeviceKey(acquired.getAudioTracks?.()[0]?.getSettings?.());
         ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-        const src = ctx.createMediaStreamSource(stream);
+        const context = ctx;
+        if (context.state !== 'running') await context.resume();
+        if (generation !== micGeneration || stream !== acquired || ctx !== context) { acquired.getTracks().forEach((track) => track.stop()); return false; }
+        if (context.state !== 'running' || acquired.getTracks().some((track) => track.readyState === 'ended')) throw new Error('input_unavailable');
+        const src = context.createMediaStreamSource(stream);
         analyser = ctx.createAnalyser();
         analyser.fftSize = 1024;
         buf = new Float32Array(analyser.fftSize);
         src.connect(analyser);
         // 48kHz에서도 반음 경계 밖으로 에너지가 흩어지는 양을 줄인다(약 2.93Hz/bin).
-        wide = ctx.createAnalyser(); wide.fftSize = 16384; wide.smoothingTimeConstant = 0.5; fbuf = new Float32Array(wide.frequencyBinCount); src.connect(wide);
-        this.state = 'on';
+        wide = ctx.createAnalyser(); wide.fftSize = 16384; wide.smoothingTimeConstant = 0; fbuf = new Float32Array(wide.frequencyBinCount); src.connect(wide);
+        stopInputWatch = observeMediaStream(acquired, () => { if (stream === acquired) interruptMicrophone('track'); });
+        const onContext = () => { if (ctx === context && context.state !== 'running') interruptMicrophone('context'); };
+        context.addEventListener('statechange', onContext);
+        stopContextWatch = () => context.removeEventListener('statechange', onContext);
+        setMicState('on');
         return true;
       } catch (e) {
         if (generation !== micGeneration) return false;
-        if (stream) stream.getTracks().forEach((track) => track.stop());
-        stream = null;
-        this.state = 'denied';
+        disposeMicrophone(); setMicState('denied');
         return false;
       }
     })();
@@ -230,7 +262,7 @@ export const mic = {
   },
   // 소리 크기(RMS). 0~1, 보통 조용할 때 0.01 아래
   level() {
-    if (this.state !== 'on' || !analyser) return 0;
+    if (!microphoneAlive() || !analyser) return 0;
     analyser.getFloatTimeDomainData(buf);
     let sum = 0;
     for (let i = 0; i < buf.length; i += 1) sum += buf[i] * buf[i];
@@ -239,7 +271,7 @@ export const mic = {
   // 지금 소리의 음 구성(도~시 12칸). 80~1000Hz만 본다. 코드 구분용
   chroma() {
     const out = new Array(12).fill(0);
-    if (this.state !== 'on' || !wide) return out;
+    if (!microphoneAlive() || !wide) return out;
     wide.getFloatFrequencyData(fbuf);
     const hz = ctx.sampleRate / wide.fftSize;
     for (let i = Math.ceil(80 / hz); i < fbuf.length && i * hz < 1000; i += 1) {
@@ -250,12 +282,9 @@ export const mic = {
     return out;
   },
   stop() {
-    micGeneration += 1;
-    micRequest = null;
-    if (stream) stream.getTracks().forEach((t) => t.stop());
-    if (ctx) ctx.close().catch(() => {});
-    stream = null; ctx = null; analyser = null; wide = null; activeDeviceId = null; this.state = 'idle';
+    disposeMicrophone(); setMicState('idle');
   },
+  spectrumWindowMs() { return ctx && wide ? 1000 * wide.fftSize / ctx.sampleRate : 0; },
 };
 export const clearInputCalibration = () => inputProfiles.clear();
 export const applyInputCalibration = (result) => mic.state === 'on' && inputProfiles.apply(result, { deviceId: activeDeviceId, generation: micGeneration });
@@ -272,6 +301,7 @@ export function makeOnsetDetector(onHit) {
   let armed = true; let raf = 0; let stopped = false;
   const loop = () => {
     if (stopped) return;
+    if (document.hidden || mic.state !== 'on') { raf = requestAnimationFrame(loop); return; }
     const th = threshold();
     const l = mic.level();
     if (armed && l > th) { armed = false; onHit(performance.now(), l); }
@@ -314,12 +344,15 @@ export function clearLog() {
 }
 
 // 연습 중 화면이 꺼지지 않게 한다 (지원하지 않는 폰에서는 아무 일도 없다)
-let wake = null;
+let wakeController = null; let wakeListening = false;
+const onWakeVisibility = () => { if (document.hidden) wakeController.suspend(); else wakeController.refresh(); };
+const onWakeGesture = () => { wakeController.refresh(); };
 export async function keepAwake(on) {
-  try {
-    if (on && !wake && navigator.wakeLock) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); }
-    if (!on && wake) { await wake.release(); wake = null; }
-  } catch (e) {}
+  if (typeof document === 'undefined') return;
+  if (!wakeController) wakeController = createWakeLockController({ isVisible: () => !document.hidden, request: () => navigator.wakeLock?.request('screen') });
+  if (on && !wakeListening) { document.addEventListener('visibilitychange', onWakeVisibility); document.addEventListener('pointerdown', onWakeGesture); wakeListening = true; }
+  if (!on && wakeListening) { document.removeEventListener('visibilitychange', onWakeVisibility); document.removeEventListener('pointerdown', onWakeGesture); wakeListening = false; }
+  await wakeController.setActive(on);
 }
 
 // ---------- 효과음과 진동 ----------

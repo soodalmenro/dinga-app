@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { mic, applyInputCalibration, clearInputCalibration, logEvent } from './lib.js';
 import { deriveInputCalibration } from './inputCalibration.js';
 import { initPose, watchPosture } from './pose.js';
+import { observeMediaStream } from './mediaLifecycle.js';
 
 const INPUT_MESSAGES = {
   noise: '주변 소음이 커요. 더 조용한 곳에서 다시 확인해 주세요.',
@@ -20,11 +21,12 @@ function MicrophoneSetup() {
   const cancel = (next = 'idle') => { release(); setResult(null); setPhase(next); };
   useEffect(() => {
     const hidden = () => { if (document.hidden) cancel('paused'); };
+    const unsubscribe = mic.subscribe((state) => { if (state === 'interrupted') cancel('paused'); });
     document.addEventListener('visibilitychange', hidden);
-    return () => { document.removeEventListener('visibilitychange', hidden); release(); };
+    return () => { unsubscribe(); document.removeEventListener('visibilitychange', hidden); release(); };
   }, []);
   const start = async () => {
-    release(); clearInputCalibration();
+    release(); clearInputCalibration(); mic.prime();
     const current = request.current;
     setResult(null); setPhase('request'); setProgress(0);
     const ok = await mic.start();
@@ -83,8 +85,9 @@ function CameraSetup() {
   }, []);
   useEffect(() => {
     if (!attempt) return undefined;
-    let dead = false; let stream; let stop;
+    let dead = false; let failed = false; let stream; let stop; let stopInput;
     const releaseStream = () => {
+      if (stopInput) stopInput(); stopInput = null;
       if (stream) stream.getTracks().forEach((track) => track.stop());
       if (video.current && video.current.srcObject === stream) video.current.srcObject = null;
       stream = null;
@@ -95,10 +98,14 @@ function CameraSetup() {
         const acquired = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         if (dead) { acquired.getTracks().forEach((track) => track.stop()); return; }
         stream = acquired;
+        stopInput = observeMediaStream(acquired, () => {
+          if (dead || failed) return;
+          failed = true; if (stop) stop(); releaseStream(); setGuide(null); setPhase('interrupted');
+        });
         if (video.current) { video.current.srcObject = acquired; video.current.play().catch(() => {}); }
         setPhase('loading');
         const ok = await initPose();
-        if (dead) return;
+        if (dead || failed) return;
         if (!ok) { releaseStream(); setPhase('failed'); return; }
         setPhase('tracking');
         stop = watchPosture(video.current, {
@@ -124,6 +131,7 @@ function CameraSetup() {
       {phase === 'loading' && <p className="sub">촬영 위치를 확인할 준비를 하고 있어요.</p>}
       {phase === 'denied' && <p className="sub">카메라를 사용할 수 없어요. 사이트 권한을 확인하거나 확인을 마쳐도 괜찮아요.</p>}
       {phase === 'failed' && <p className="sub">촬영 위치 확인이 멈췄어요. 다시 확인하거나 확인을 마쳐 주세요.</p>}
+      {phase === 'interrupted' && <p className="sub">카메라 연결이 끊겼어요. 다시 연결한 뒤 확인해 주세요.</p>}
       {phase === 'paused' && <p className="sub">카메라 확인을 멈췄어요. 준비되면 다시 확인해 주세요.</p>}
       {phase === 'tracking' && guide && <><h3>{guide.title}</h3><div className="sub">{guide.instruction}</div></>}
     </div>

@@ -1,9 +1,10 @@
 // Framing suggestions, not posture verdicts or calibrated device accuracy.
+import { validLandmark } from './landmarkValidity.js';
 export function cameraFraming(landmarks, hand = 'left', focus = 'all') {
   const result = (reason, title, instruction, ready = false) => ({ reason, title, instruction, ready });
   const visible = (i) => {
     const p = landmarks?.[i];
-    return p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0.03 && p.x <= 0.97 && p.y >= 0.03 && p.y <= 0.97 && (p.visibility ?? 1) > 0.5;
+    return validLandmark(p, 0.03) && (p.visibility === undefined ? 1 : p.visibility) > 0.5;
   };
   if (!Array.isArray(landmarks) || !landmarks.some((_, i) => visible(i))) return result('nobody', '상체가 잘 보이지 않아요', '폰을 고정하고 상체를 화면 안으로 옮겨 주세요. 얼굴 쪽으로 빛이 오도록 해 보세요.');
   if (!visible(11) || !visible(12)) return result('shoulders', '양쪽 어깨를 보여 주세요', '폰을 조금 뒤로 옮겨 두 어깨가 화면 안에 들어오게 해 주세요.');
