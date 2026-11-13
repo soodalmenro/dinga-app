@@ -13,6 +13,7 @@
 - [카메라·마이크 연습 환경 확인](PRACTICE_ENVIRONMENT.md)
 - [평가 기록 JSON 회수와 스키마](EVALUATION_EXPORT.md)
 - [장치 중단 복구·화면 복귀·코드 전환 검증](MEDIA_RECOVERY.md)
+- [자세 관측 경계·반복 사용·연속 실행 검사](RECOGNITION_SOAK.md)
 
 ## 제공하는 기능
 

@@ -25,7 +25,7 @@ const lose=page=>page.evaluate(()=>{const track=window.cameraLossStreams.at(-1).
  await page.getByText(/카메라 연결이 끊겼어요/).waitFor();await page.evaluate(()=>window.finishCameraModel());await page.waitForTimeout(300);
  assert.equal(await page.evaluate(()=>window.cameraLossSends),0);
  assert.equal(await page.locator('.setup-camera video').evaluate(v=>!!v.srcObject?.active),false);
- await page.getByRole('button',{name:'카메라 다시 확인',exact:true}).click();await page.getByText('상체가 잘 보이지 않아요',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'카메라 다시 확인',exact:true}).click();await page.waitForFunction(()=>window.cameraLossSends>0);await page.getByText('상체가 잘 보이지 않아요',{exact:true}).waitFor();
  assert.ok(await page.evaluate(()=>window.cameraLossSends)>0);await page.getByRole('button',{name:'확인 마치기',exact:true}).click();
  assert.ok(await page.evaluate(()=>window.cameraLossStreams.every(stream=>stream.getTracks().every(track=>track.readyState==='ended'))));
  await page.close();console.log('PASS camera loss during model load ignores late completion and safely reconnects');

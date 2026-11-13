@@ -89,12 +89,22 @@ export function judge(m, th = content.poseThresholds) {
 // 영상에서 자세를 계속 본다. 같은 문제가 holdMs 동안 이어지면 onIssue를 부른다
 export function watchPosture(video, { onIssue, onStatus, focus = 'all' }) {
   const th = content.poseThresholds;
+  const maxObservationGap = 1000;
   let stopped = false; let timer; let errors = 0; const since = { wrist: null, shoulder: null };
+  let lastObservation = null; let lastFrameTime = null; let frameStartedAt = null; let frameWidth; let frameHeight;
+  const usableVideo = () => video?.readyState >= 2 && Number.isFinite(video.videoWidth) && video.videoWidth > 0
+    && Number.isFinite(video.videoHeight) && video.videoHeight > 0 && !(typeof document !== 'undefined' && document.hidden);
+  const resetObservation = () => {
+    since.wrist = null; since.shoulder = null; lastObservation = null;
+    onStatus('nobody', null, cameraFraming(null, th.hand, focus));
+  };
   const receive = (r) => {
     if (stopped) return;
     const lm = r.poseLandmarks; const now = performance.now();
-    if (!lm) { since.wrist = null; since.shoulder = null; onStatus('nobody', null, cameraFraming(lm, th.hand, focus)); return; }
-    const m = measure(lm, th.hand, video.videoWidth || 480, video.videoHeight || 640);
+    if (!usableVideo() || now - frameStartedAt > maxObservationGap || video.videoWidth !== frameWidth || video.videoHeight !== frameHeight || !lm) { resetObservation(); return; }
+    if (lastObservation !== null && now - lastObservation > maxObservationGap) { since.wrist = null; since.shoulder = null; }
+    lastObservation = now;
+    const m = measure(lm, th.hand, frameWidth, frameHeight);
     const bad = judge(m, th);
     onStatus(m.wrist == null && m.tilt == null ? 'nobody' : 'seen', m, cameraFraming(lm, th.hand, focus));
     ['wrist', 'shoulder'].forEach((k) => {
@@ -105,7 +115,16 @@ export function watchPosture(video, { onIssue, onStatus, focus = 'all' }) {
   };
   const loop = async () => {
     if (stopped) return;
-    if (pose && !sending && video.readyState >= 2) {
+    const frameTime = video?.currentTime;
+    const sameFrame = Number.isFinite(frameTime) && frameTime === lastFrameTime;
+    if (!usableVideo()) resetObservation();
+    else if (sameFrame) {
+      if (lastObservation !== null && performance.now() - lastObservation > maxObservationGap) resetObservation();
+    }
+    else if (pose && !sending) {
+      if (Number.isFinite(frameTime) && lastFrameTime !== null && frameTime < lastFrameTime) resetObservation();
+      lastFrameTime = Number.isFinite(frameTime) ? frameTime : null;
+      frameStartedAt = performance.now(); frameWidth = video.videoWidth; frameHeight = video.videoHeight;
       const model = pose;
       const job = { model, receive };
       sending = job;
