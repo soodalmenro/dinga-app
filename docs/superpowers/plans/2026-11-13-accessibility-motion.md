@@ -16,7 +16,7 @@
 ## Tasks
 - [x] RED→GREEN: actual browser reduced-motion preference suppresses character entry/idle/tap and confetti; changing preference cancels active motion, restore works, unmount removes preference listeners.
 - [x] Improve dialog word wrapping/padding for large Korean text; verify 320px and landscape controls and screenshots.
-- [ ] Relevant quality/mobile/recovery regressions, both builds and final read-only review; commit→main→Vercel and verify deployed artifact/flows.
+- [x] Relevant quality/mobile/recovery regressions, both builds and final read-only review; commit→main→Vercel and verify deployed artifact/flows.
 
 ## Ledger
 - Ruling: keep current checkout on feature branch and established authorized rollout. Hardware validation is not a dependency of these implementation fixes.
@@ -27,3 +27,5 @@
 - Regression evidence: quality10, mobile12, recovery layout3 and participant handoff pass. Built-app smoke verifies JS/CSS, report/JSON, microphone retry and reduced-motion initial/tap/live changes. Full QA first run timed out waiting for song report; cause not established. Added failure-state diagnostics and rerunning unchanged product build rather than weakening criteria.
 
 - Final verification: reduced/default/legacy media-query browser cases exit0; local built JS/CSS/report/JSON/recovery/live-motion smoke exit0; quality10/mobile12/recovery3/handoff exit0; full140/0 rerun on unchanged app after first unreproduced timeout. First cause remains unknown, retained diagnostic capture. Both builds and read-only review complete.
+
+- Rollout:ad001e3 deployed Ready at dinga-m3k168zvx-hci24.vercel.app. Production dinga-app.vercel.app smoke exit0 verifies reviewed index-DP7Tc7Xh.js and index-BHK6GL20.css, result/participant JSON, microphone reconnection and initial/tap/live reduced-motion changes. Development-first instruction retained; no physical test request.
