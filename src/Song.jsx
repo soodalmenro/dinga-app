@@ -35,11 +35,13 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   const results = useRef([]);
   const startLogged = useRef(false);
   const speed = s.panel.speed;
+  const comparisonSpeed = useRef(speed);
   const beatMs = 60000 / ((content.songChart.bpm * tempo) / 100) / speed;
   const previousBeatMs = useRef(beatMs);
   useEffect(() => {
     if (previousBeatMs.current === beatMs) return;
     previousBeatMs.current = beatMs;
+    comparisonSpeed.current = phase === 'play' ? null : speed;
     elapsed.current = results.current.length * 4 * beatMs; hits.current = [];
     setBar(Math.min(results.current.length, 7)); setBeat(0);
   }, [beatMs]);
@@ -51,6 +53,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       interrupted.current = false;
       if (micOn === false) {
         results.current = []; hits.current = []; elapsed.current = 0; startLogged.current = false;
+        comparisonSpeed.current = speed;
         setRes([]); setBar(0); setBeat(0); setPhase('wait'); setActiveJudge(null); setQuiet(false);
       }
     }
@@ -101,7 +104,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
         if (emb) { logEvent('transition_end', { pair: pair.join('-'), judge: judgeMode, bars: out.join(',') }); sfx.ok(); params.onDone(); return; }
         update((d) => {
           const t = today(d); const firstCh = false; // 같은 곡 완료 표시는 곡 연습(SongPlay)에서 한다
-          d.song.prev = d.song.last; d.song.last = { judge: judgeMode, bars: out, chart: BARS, pair: pair || null, back: (params && params.back) || null, tempo, date: t, challengeFirst: firstCh }; d.history[t] = (d.history[t] || 0) + (params && params.fromLesson ? 180 : 120);
+          d.song.prev = d.song.last; d.song.last = { judge: judgeMode, bars: out, chart: BARS, pair: pair || null, back: (params && params.back) || null, tempo, speed: comparisonSpeed.current, date: t, challengeFirst: firstCh }; d.history[t] = (d.history[t] || 0) + (params && params.fromLesson ? 180 : 120);
           if (params && params.fromLesson) { d.done.song[2] = true; d.resume = null; }
         });
         logEvent('song_end', { tempo, judge: judgeMode, bars: out.join(',') });
@@ -158,11 +161,27 @@ function weakTransition(bars, BARS) {
 }
 const PAIRS = { Em: { G: ['Em', 'G'], C: ['Em', 'C'] }, G: { Em: ['Em', 'G'], C: ['G', 'C'] }, C: { G: ['G', 'C'], Em: ['Em', 'C'] } };
 
+export function comparableTransitionResults(last, prev) {
+  const modes = ['mic', 'random', 'allok', 'hard'];
+  const valid = (result) => result && modes.includes(result.judge)
+    && Number.isFinite(result.tempo) && result.tempo >= 40 && result.tempo <= 125
+    && Number.isFinite(result.speed) && result.speed > 0
+    && Array.isArray(result.bars) && result.bars.length === 8 && result.bars.every((bar) => ['ok', 'late', 'none'].includes(bar));
+  if (!valid(last) || !valid(prev) || last.judge !== prev.judge || last.tempo !== prev.tempo || last.speed !== prev.speed) return false;
+  if ((last.pair == null) !== (prev.pair == null)) return false;
+  if (last.pair != null && (!Array.isArray(last.pair) || !Array.isArray(prev.pair) || last.pair.length !== 2 || prev.pair.length !== 2 || !last.pair.every((chord, i) => Object.hasOwn(content.chordNotes, chord) && chord === prev.pair[i]))) return false;
+  const chart = (result) => result.chart ?? (result.pair == null ? SONG : null);
+  const a = chart(last); const b = chart(prev);
+  return Array.isArray(a) && Array.isArray(b) && a.length === 8 && b.length === 8
+    && a.every((chord, i) => Object.hasOwn(content.chordNotes, chord) && chord === b[i]);
+}
+
 export function Report({ s, go }) {
   const { last, prev } = s.song; const BARS = (last && last.chart) || SONG; const pair = last && last.pair;
   if (!last) return <div className="screen center"><div className="grow sub">아직 연주 기록이 없어요</div><button className="btn" onClick={() => go('home')}>홈으로</button></div>;
   const sound = last.bars.filter((r) => r !== 'none').length;
   const onbeat = last.bars.filter((r) => r === 'ok').length;
+  const comparable = comparableTransitionResults(last, prev);
   const weak = pair ? null : weakTransition(last.bars, BARS);
   const allOk = onbeat === 8;
   const nextTempo = Math.min(125, last.tempo + 10);
@@ -202,7 +221,7 @@ export function Report({ s, go }) {
         <div className="card sel"><div className="cap">{allOk ? '모두 맞았어요!' : '전환은 잘 따라왔어요'}</div><h2>{allOk ? '템포를 올려 볼까요?' : '소리를 조금 더 크게 내 볼까요?'}</h2></div>
       )}
       <div className="card">
-        {prev ? <b style={{ fontSize: 14 }}>지난번보다 박자 맞음 {prev.bars.filter((r) => r === 'ok').length}/8 → {onbeat}/8{prev.judge && prev.judge !== 'mic' ? ' (지난번은 모의 판정)' : ''}</b> : <b style={{ fontSize: 14 }}>첫 연주예요. 다음부터 지난번과 비교해 드려요</b>}
+        {comparable ? <b style={{ fontSize: 14 }}>지난번보다 박자 맞음 {prev.bars.filter((r) => r === 'ok').length}/8 → {onbeat}/8{last.judge !== 'mic' ? ' (모의 판정끼리 비교)' : ''}</b> : prev ? <><b style={{ fontSize: 14 }}>비교할 수 있는 직전 기록이 없어요.</b><div className="sub" style={{ fontSize: 12 }}>코드 구성·템포·판정 방식·실행 속도가 같은 기록만 비교해요.</div></> : <b style={{ fontSize: 14 }}>첫 연주예요. 같은 조건의 다음 연습부터 비교해 드려요</b>}
         <div className="sub" style={{ fontSize: 13 }}>다음 목표: {goal}</div>
       </div>
       <div className="grow" style={{ minHeight: 0 }} />

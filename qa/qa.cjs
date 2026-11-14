@@ -132,7 +132,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await setSt(p, { panel: { judge: 'allok', speed: 3 } });
   await btn(p, '학습').click(); await p.getByText('레슨 4 · 첫 곡').click(); await p.getByText('파트 3 · 곡 연주').click(); await p.waitForTimeout(500); await p.getByText('건너뛰기').click();
   await p.waitForFunction(() => document.body.innerText.includes('곡 리포트'), null, { timeout: 40000 }); t = await txt(p); s = await st(p);
-  ok('두 번째 연주: 직전 결과와 비교', /지난번보다 박자 맞음 \d\/8 → 8\/8/.test(t), t.slice(0, 300));
+  ok('두 번째 연주: 다른 모의 판정 방식은 비교 제외', t.includes('비교할 수 있는 직전 기록이 없어요') && !t.includes('지난번보다 박자 맞음'), t.slice(0, 300));
   ok('모두 맞음: 전환 대신 칭찬 + 템포 올리기 목표', t.includes('모두 맞았어요!') && t.includes('템포 90%'));
   ok('직전 결과 1건 보관', s.song.prev && s.song.prev.bars.length === 8);
   await btn(p, '한 번 더').click(); await p.waitForTimeout(300);

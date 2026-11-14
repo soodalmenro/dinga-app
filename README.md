@@ -135,6 +135,8 @@ node qa/lesson-time.cjs
 node qa/stored-result-integrity.cjs
 node qa/stored-result-browser.cjs
 node qa/camera-preview.cjs
+node qa/result-comparison.cjs
+node qa/result-comparison-browser.cjs
 node qa/resume-variant.cjs
 node qa/setting-integrity.cjs
 ```
