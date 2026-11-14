@@ -20,7 +20,7 @@
 ## Tasks
 - [x] RED: invalid best/count, string/object completion/retry flags and challenge status; positive legacy roundtrip controls and unrelated data preservation.
 - [x] GREEN: minimum load-boundary normalization and actual browser recovery. Broader legacy storage regression pending.
-- [ ] Relevant score/participant/setting/quality checks, both builds, review, docs and existing rollout with live verification.
+- [x] Relevant score/participant/quality checks, both builds, review, docs and existing rollout with live verification.
 
 ## Ledger
 - Root cause: `nonnegative` accepts out-of-range best and fractional/unsafe counts; report spreads and raw challenge preserve truthy non-boolean flags.
@@ -29,3 +29,4 @@
 - Both builds passed; JS `index-VTSTWIAh.js`, CSS `index-BHK6GL20.css`. Final full and relevant storage/score/participant/quality regressions pending.
 - Focused regressions passed: legacy migration and storage failure/retry, both stored-record browser cases, uncertain/unmeasured/partial score summaries, participant handoff/export and quality 10. Full regression pending; source unchanged after final review/build.
 - Final full regression: 140 pass / 0 fail. Pure recovery checks 8, browser recovery/preservation 2 and focused checks above passed. Ready for established rollout.
+- Rollout: source `2c6f6d1` fast-forwarded and pushed to main; Vercel `dinga-o5isd5gro-hci24.vercel.app` Ready Production. Live exact JS/CSS match and all six smoke workflows passed. Both stored-result UI/reload scenarios also passed against `https://dinga-app.vercel.app/`. Physical recognition tests remain last.
