@@ -154,5 +154,24 @@ const { chromium } = require('playwright');
     const complete=await checkpoint.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')));
     assert.equal(complete.resume,null);assert.equal(complete.done.em[0],true);assert.equal(Object.values(complete.history).reduce((a,b)=>a+b,0),180);
     assert.deepEqual(errors,[]);console.log('PASS deployed checkpoint, native reload prompt, restore and single completion');
+    const settings = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    settings.on('pageerror', error => errors.push(error.message));
+    await settings.addInitScript(() => {
+      const d=new Date();const date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
+      localStorage.setItem('dinga-v1',JSON.stringify({attendances:[{date,method:'manual'}],panel:{variant:'idea',pid:'P1',alert:'off'},resume:{lesson:'em',part:0,step:1}}));
+    });
+    await settings.goto(process.env.QA_URL || 'https://dinga-app.vercel.app/');
+    await settings.locator('.widget').click();await settings.locator('.splash').waitFor({state:'detached'});
+    async function openSettings(){for(let i=0;i<3;i++)await settings.mouse.click(375,18);await settings.getByRole('heading',{name:'평가 패널',exact:true}).waitFor();}
+    await openSettings();
+    await settings.locator('.panel-row',{hasText:'화면 구성'}).locator('select').selectOption('prd');
+    await settings.waitForFunction(()=>JSON.parse(localStorage.getItem('dinga-v1')).resume?.step===2);
+    await settings.getByRole('button',{name:'닫기',exact:true}).click();
+    await settings.getByRole('button',{name:/이어서 연습하기/}).click();await settings.locator('.dots').waitFor();
+    await openSettings();
+    assert.equal(await settings.getByPlaceholder('예: P1').isDisabled(),true);
+    assert.equal(await settings.locator('.panel-row',{hasText:'화면 구성'}).locator('select').isDisabled(),true);
+    assert.equal(await settings.getByRole('button',{name:'JSON 저장',exact:true}).isEnabled(),true);
+    assert.deepEqual(errors,[]);console.log('PASS deployed variant resume mapping and active participant/settings lock');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

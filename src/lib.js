@@ -136,6 +136,21 @@ export const daysToSunday = (str) => 6 - dayDiff(weekStart(str), str);
 export const challengeDone = (s) => !!(s.challenge && s.challenge.done);
 // 아이디어 반영 구성에서는 4번째 레슨이 '완주하기'(전환 → 박자 → 완주)다
 export const lessonsFor = (s) => (s.panel.variant === 'idea' ? content.lessons.map((l) => (l.id === 'song' ? content.courseSong : l)) : content.lessons);
+export function remapResumeVariant(resume, from, to) {
+  if (!resume || typeof resume !== 'object' || Array.isArray(resume)
+    || !['idea', 'prd'].includes(from) || !['idea', 'prd'].includes(to)
+    || !Number.isInteger(resume.part) || resume.part < 0 || !Number.isInteger(resume.step) || resume.step < 0) return null;
+  const part = (variant) => lessonsFor({ panel: { variant } }).find((lesson) => lesson.id === resume.lesson)?.parts[resume.part];
+  const before = part(from); const after = part(to);
+  if (!before?.steps?.length || !after?.steps?.length) return null;
+  const visible = (definition, variant) => definition.steps.filter((step) => variant !== 'idea' || step.type !== 'posture');
+  const oldSteps = visible(before, from); const newSteps = visible(after, to);
+  if (!oldSteps.length || !newSteps.length) return null;
+  // Song variants use different curricula; restart the same part rather than guess.
+  const previous = oldSteps[Math.min(resume.step, oldSteps.length - 1)];
+  const mapped = before === after ? newSteps.indexOf(previous) : -1;
+  return { lesson: resume.lesson, part: resume.part, step: Math.max(0, mapped) };
+}
 export const courseDone = (s) => ['em', 'g', 'c', 'song'].every((k) => s.done[k].every(Boolean));
 export const attendedOn = (s, date) => s.attendances.find((a) => a.date === date);
 export function lastAttendance(s) {

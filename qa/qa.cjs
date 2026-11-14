@@ -171,14 +171,15 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await p.locator('.panel-row button').first().click(); await p.waitForTimeout(500); s = await st(p);
   ok('패널: 상태 초기화 → 출석·기록·자세·곡 결과 모두 삭제', s.attendances.length === 0 && Object.keys(s.history).length === 0 && s.posture === null && s.song.last === null && (await txt(p)).includes('처음 만나서'));
   // 소리 출석 (가짜 마이크의 삐 소리)
+  // 참가자 설정은 출석 화면에 들어가기 전에 마친다.
+  for (let i = 0; i < 3; i++) await p.mouse.click(360, 20); await p.waitForTimeout(300);
+  await p.locator('.panel-row input').fill('P1'); await p.waitForTimeout(200); await p.getByRole('button', { name: '닫기', exact: true }).click(); await p.locator('.sheet').waitFor({ state: 'detached' }).catch(() => {});
+  ok('패널: 참가자 번호 저장', (await st(p)).panel.pid === 'P1');
   await btn(p, '오늘 연습 시작').click();
   const r = await p.waitForFunction(() => /출석 완료|소리가 잘 안/.test(document.body.innerText), null, { timeout: 14000 }).then(() => txt(p));
   ok('출석: 10초 안에 완료 또는 [다시 하기/건너뛰기] 표시', /출석 완료/.test(r) || (r.includes('다시 하기') && r.includes('건너뛰기')), r.slice(0, 60));
   const lg = await p.evaluate(() => JSON.parse(localStorage.getItem('dinga-log') || '[]')); const types = new Set(lg.map((x) => x.type));
   ok('행동 기록: 화면·단계·막힘·건너뛰기·나가기·완료·곡·자세·출석이 시간과 함께 남음', ['screen', 'step', 'stuck', 'skip', 'exit', 'part_done', 'song_start', 'song_end', 'posture', 'attend', 'reset'].every((x) => types.has(x)) && lg.every((x) => x.t), [...types].join(','));
-  for (let i = 0; i < 3; i++) await p.mouse.click(360, 20); await p.waitForTimeout(300);
-  await p.locator('.panel-row input').fill('P1'); await p.waitForTimeout(200); await p.getByRole('button', { name: '닫기', exact: true }).click(); await p.locator('.sheet').waitFor({ state: 'detached' }).catch(() => {});
-  ok('패널: 참가자 번호 저장', (await st(p)).panel.pid === 'P1');
   ok('A 묶음 화면 오류 없음', p.errs.length === 0, p.errs.join(' | ')); await b.close();
 
   // ---------- B. 마이크·카메라 거부 ----------

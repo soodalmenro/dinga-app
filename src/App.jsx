@@ -9,7 +9,7 @@ import guitarOff from './img/guitar-off.svg';
 import { useMicrophone } from './useMicrophone.js';
 import PracticeSetup from './PracticeSetup.jsx';
 import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
-import { getLogStorageMode } from './lib.js';
+import { getLogStorageMode, remapResumeVariant } from './lib.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { useBeforeUnload } from './useBeforeUnload.js';
 
@@ -386,8 +386,14 @@ function History({ s, go }) {
 }
 
 // 평가 진행용 숨은 패널. 화면 오른쪽 위를 세 번 누르면 열린다
-function Panel({ s, update, setS, close, go }) {
-  const set = (k, v) => update((d) => { d.panel[k] = v; });
+function Panel({ s, update, setS, close, go, editingLocked = false }) {
+  const set = (k, v) => {
+    if (editingLocked && ['pid', 'variant'].includes(k) && v !== s.panel[k]) return;
+    update((d) => {
+      if (k === 'variant' && d.panel.variant !== v) d.resume = remapResumeVariant(d.resume, d.panel.variant, v);
+      d.panel[k] = v;
+    });
+  };
   const [logText, setLogText] = useState(null);
   const [exportScope, setExportScope] = useState('participant');
   const [notice, setNotice] = useState(null);
@@ -431,9 +437,10 @@ function Panel({ s, update, setS, close, go }) {
   return (
     <Modal onClose={close}>
       <div><h1 style={{ fontSize: 18 }}>평가 패널</h1><div className="sub" style={{ fontSize: 12 }}>참가자에게는 보여 주지 않아요</div></div>
-      <div className="panel-row"><span>참가자 번호</span><input value={s.panel.pid} onChange={(e) => set('pid', e.target.value)} placeholder="예: P1" /></div>
+      <div className="panel-row"><span>참가자 번호</span><input disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.pid} onChange={(e) => set('pid', e.target.value)} placeholder="예: P1" /></div>
       <div className="panel-row"><span>상태 초기화</span><button onClick={() => { logEvent('reset'); mic.stop(); const n = resetAll(); KEEP_ON_RESET.forEach((k) => { n.panel[k] = s.panel[k]; }); setS(n); close(); go(n.panel.variant === 'idea' ? 'phone' : 'home'); }}>지우기</button></div>
-      <div className="panel-row"><span>화면 구성</span><select value={s.panel.variant} onChange={(e) => set('variant', e.target.value)}><option value="idea">아이디어 반영</option><option value="prd">PRD 원본</option></select></div>
+      <div className="panel-row"><span>화면 구성</span><select disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.variant} onChange={(e) => set('variant', e.target.value)}><option value="idea">아이디어 반영</option><option value="prd">PRD 원본</option></select></div>
+      {editingLocked ? <div id="evaluation-locked-settings" className="sub" style={{ fontSize: 11 }}>참가자 번호·화면 구성은 연습 화면을 나간 뒤 바꿀 수 있어요.</div> : <><div className="sub" style={{ fontSize: 11 }}>구성을 바꾸면 이어하기를 대응 단계로 옮겨요. 곡 구성이 다르면 같은 파트 처음부터 시작해요.</div><div className="sub" style={{ fontSize: 11 }}>참가자 번호만 바꿔도 기존 진도는 남아요. 새 참가자는 먼저 상태 초기화를 해 주세요.</div></>}
       <div className="panel-row"><span>폰 홈 화면 (위젯)</span><button onClick={() => { close(); go('phone'); }}>보기</button></div>
       <div className="panel-row"><span>자세 알림</span><span><select value={s.panel.alert} onChange={(e) => set('alert', e.target.value)}><option value="auto">정해진 시점</option><option value="real">실제 판정</option><option value="manual">진행자가 띄움</option><option value="off">끔</option></select></span></div>
       <div className="panel-row"><span>자세 알림 한 번 띄우기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-alert')); close(); }}>지금 띄우기</button></div>
@@ -534,7 +541,7 @@ export default function App() {
       {TABS.includes(route) && <TabBar route={route} go={go} />}
       {toastMsg && <div className="toast">{toastMsg}</div>}
       {splash !== 'done' && <Splash leaving={splash === 'leave'} />}
-      {panel && <Panel s={s} update={update} setS={setS} close={() => setPanel(false)} go={go} />}
+      {panel && <Panel s={s} update={update} setS={setS} close={() => setPanel(false)} go={go} editingLocked={['attend', 'lesson', 'song', 'songplay', 'setup'].includes(route)} />}
     </div>
   );
 }
