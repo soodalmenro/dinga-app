@@ -237,7 +237,8 @@ async function cameraAndObservedTime(browser, url) {
     await button(page, '다시 찍기').click();
     await page.waitForFunction(() => {
       const video = document.querySelector('.cam video');
-      return video?.readyState >= 2 && video.srcObject?.active;
+      const capture = [...document.querySelectorAll('button')].find(button => button.textContent === '촬영 (3초 뒤)');
+      return video?.readyState >= 2 && video.srcObject?.active && capture?.disabled === false;
     });
     assert.ok(await button(page, '촬영 (3초 뒤)').isEnabled());
     console.log('PASS capture pauses behind exit dialog and retake attaches a live preview');

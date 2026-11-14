@@ -35,11 +35,16 @@ function useBeat(bpm, speed, running) {
   return [beat, setBeat];
 }
 
+const usableCaptureFrame = (video) => video?.readyState >= 2
+  && Number.isFinite(video.videoWidth) && video.videoWidth > 0
+  && Number.isFinite(video.videoHeight) && video.videoHeight > 0;
+
 function Posture({ lesson, s, update, next, speed, running }) {
   const [phase, setPhase] = useState('pre'); // pre | count | result | denied
   const [count, setCount] = useState(3);
   const [shot, setShot] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraAttempt, setCameraAttempt] = useState(0);
   const [res, setRes] = useState(null);
   const video = useRef(null);
   const stream = useRef(null);
@@ -58,23 +63,42 @@ function Posture({ lesson, s, update, next, speed, running }) {
       if (request !== openRequest.current) { st.getTracks().forEach((track) => track.stop()); return; }
       stream.current = st;
       stopWatch.current = observeMediaStream(st, () => { stop(); setCameraReady(false); setPhase('denied'); });
-      setCameraReady(true);
+      setCameraAttempt((value) => value + 1);
       setPhase('pre');
     } catch (e) { if (request === openRequest.current) { logEvent('camera_denied'); setPhase('denied'); } }
   };
   useEffect(() => { open(); return stop; }, []);
   useEffect(() => {
-    if (phase === 'pre' && cameraReady && video.current && stream.current) {
-      video.current.srcObject = stream.current;
-      video.current.play().catch(() => {});
-    }
-  }, [phase, cameraReady]);
+    if (!['pre', 'count'].includes(phase) || !video.current || !stream.current) return undefined;
+    const v = video.current; const acquired = stream.current; const request = openRequest.current;
+    let dead = false; let lastReady = performance.now();
+    const current = () => !dead && request === openRequest.current;
+    const fail = () => {
+      if (!current()) return;
+      stop(); setCameraReady(false); setPhase('failed'); logEvent('camera_failed', { stage: 'preview' });
+    };
+    const check = () => {
+      if (!current()) return;
+      if (!mediaStreamIsLive(acquired)) { fail(); return; }
+      const ready = usableCaptureFrame(v);
+      setCameraReady(ready);
+      if (ready) lastReady = performance.now();
+      else if (performance.now() - lastReady >= 10000) fail();
+    };
+    if (v.srcObject !== acquired) v.srcObject = acquired;
+    v.addEventListener('error', fail);
+    const timer = setInterval(check, 100);
+    check();
+    try { Promise.resolve(v.play()).catch(fail); } catch { fail(); }
+    return () => { dead = true; clearInterval(timer); v.removeEventListener('error', fail); };
+  }, [phase, cameraAttempt]);
   useEffect(() => {
     if (phase !== 'count' || !running) return undefined;
     if (count === 0) {
-      if (!mediaStreamIsLive(stream.current)) { stop(); setCameraReady(false); setPhase('denied'); return undefined; }
+      if (!mediaStreamIsLive(stream.current) || !usableCaptureFrame(video.current)) { stop(); setCameraReady(false); setPhase('failed'); logEvent('camera_failed', { stage: 'capture' }); return undefined; }
       const v = video.current; let url = null;
-      try { const c = document.createElement('canvas'); c.width = v.videoWidth || 480; c.height = v.videoHeight || 640; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); url = c.toDataURL('image/jpeg', 0.7); } catch (e) {}
+      try { const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); url = c.toDataURL('image/jpeg', 0.7); } catch (e) {}
+      if (!url || !/^data:image\/[^;]+;base64,.+/.test(url)) { stop(); setCameraReady(false); setPhase('failed'); logEvent('camera_failed', { stage: 'capture' }); return undefined; }
       stop(); setShot(url); // 사진은 이 화면에서만 쓰고 저장하지 않는다
       const sim = s.panel.posture === 'sim';
       const pick = (key) => (sim ? (Math.random() < (key === focus ? 0.4 : 0.15) ? 'warn' : 'ok') : null);
@@ -90,10 +114,10 @@ function Posture({ lesson, s, update, next, speed, running }) {
   }, [phase, count, running]);
   const setItem = (k, v) => { const r = { ...res, [k]: v }; setRes(r); update((d) => { d.posture = { date: today(d), ...r }; }); };
 
-  if (phase === 'denied') {
+  if (phase === 'denied' || phase === 'failed') {
     return (<>
-      <div className="cam"><div className="msg">카메라를 쓸 수 없어요</div></div>
-      <div className="card soft"><div className="cap">자세 확인을 건너뛰고 연습할게요</div><div className="sub">카메라를 허용하면 다음부터 자세를 볼 수 있어요</div></div>
+      <div className="cam"><div className="msg">{phase === 'failed' ? '카메라 영상을 확인할 수 없어요' : '카메라를 쓸 수 없어요'}</div></div>
+      <div className="card soft"><div className="cap">자세 확인을 건너뛰고 연습할게요</div><div className="sub">{phase === 'failed' ? '카메라를 다시 켜거나 다음 단계로 넘어갈 수 있어요' : '카메라를 허용하면 다음부터 자세를 볼 수 있어요'}</div></div>
       <button className="btn line" onClick={open}>카메라 다시 켜기</button>
       <button className="btn" onClick={next}>다음 단계로</button>
     </>);
