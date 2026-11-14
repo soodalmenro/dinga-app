@@ -132,6 +132,8 @@ node qa/motion-accessibility.cjs
 node qa/evaluation-pause.cjs
 node qa/progress-checkpoint.cjs
 node qa/lesson-time.cjs
+node qa/stored-result-integrity.cjs
+node qa/stored-result-browser.cjs
 node qa/resume-variant.cjs
 node qa/setting-integrity.cjs
 ```

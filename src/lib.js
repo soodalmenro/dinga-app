@@ -24,7 +24,7 @@ const empty = () => ({
 
 const isRecord = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && dateStr(new Date(value + 'T12:00:00')) === value;
-const nonnegative = (value, fallback = 0) => Number.isFinite(value) && value >= 0 ? value : fallback;
+const nonnegativeInteger = (value) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
 const reportBack = (value) => ['home', 'learn', 'practice', 'my', 'report', 'songreport'].includes(value) ? value : null;
 const reportTempo = (value) => Number.isFinite(value) && value >= 40 && value <= 125 ? value : 80;
 const percentage = (value) => Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
@@ -35,6 +35,7 @@ function transitionResult(value) {
   const validChord = (chord) => typeof chord === 'string' && Object.hasOwn(content.chordNotes, chord);
   return {
     ...value,
+    challengeFirst: value.challengeFirst === true,
     chart: Array.isArray(value.chart) && value.chart.length === 8 && value.chart.every(validChord) ? value.chart : undefined,
     pair: Array.isArray(value.pair) && value.pair.length === 2 && value.pair.every(validChord) ? value.pair : null,
     back: reportBack(value.back),
@@ -60,7 +61,13 @@ function practiceResult(value) {
       && (pair.uncertain === undefined || (Number.isInteger(pair.uncertain) && pair.uncertain >= 0 && pair.ok + pair.uncertain <= pair.n));
   });
   if (!validTransitions) return null;
-  return { ...value, score: percentage(value.score), chordAcc: percentage(value.chordAcc), beatAcc: percentage(value.beatAcc), tempo: reportTempo(value.tempo), back: reportBack(value.back) };
+  return {
+    ...value,
+    complete: value.complete === true, fromLesson: value.fromLesson === true,
+    firstComplete: value.firstComplete === true, challengeFirst: value.challengeFirst === true,
+    score: percentage(value.score), chordAcc: percentage(value.chordAcc), beatAcc: percentage(value.beatAcc),
+    tempo: reportTempo(value.tempo), back: reportBack(value.back),
+  };
 }
 
 export function load() {
@@ -78,7 +85,8 @@ export function load() {
     state.resume = isRecord(resume) && Object.hasOwn(base.done, resume.lesson) && Number.isInteger(resume.part) && resume.part >= 0 && resume.part < 3 && Number.isInteger(resume.step) && resume.step >= 0 ? resume : null;
     state.song = { last: transitionResult(raw.song && raw.song.last), prev: transitionResult(raw.song && raw.song.prev) };
     const practice = isRecord(raw.songPractice) ? raw.songPractice : {};
-    state.songPractice = { last: practiceResult(practice.last), count: nonnegative(practice.count), best: nonnegative(practice.best) };
+    state.songPractice = { last: practiceResult(practice.last), count: nonnegativeInteger(practice.count), best: percentage(practice.best) ?? 0 };
+    state.challenge = isRecord(raw.challenge) ? { done: raw.challenge.done === true } : null;
     state.ptab = ['review', 'transition', 'song'].includes(raw.ptab) ? raw.ptab : base.ptab;
     state.panel = { ...base.panel, ...(isRecord(raw.panel) ? raw.panel : {}) };
     for (const [key, options] of Object.entries({
@@ -133,7 +141,7 @@ export function weekStart(str) {
   return addDays(str, -wd);
 }
 export const daysToSunday = (str) => 6 - dayDiff(weekStart(str), str);
-export const challengeDone = (s) => !!(s.challenge && s.challenge.done);
+export const challengeDone = (s) => s.challenge?.done === true;
 // 아이디어 반영 구성에서는 4번째 레슨이 '완주하기'(전환 → 박자 → 완주)다
 export const lessonsFor = (s) => (s.panel.variant === 'idea' ? content.lessons.map((l) => (l.id === 'song' ? content.courseSong : l)) : content.lessons);
 export function remapResumeVariant(resume, from, to) {
