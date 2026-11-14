@@ -43,6 +43,9 @@ async function check(browser, url) {
     await page.locator('.widget').click();
     await page.locator('.splash').waitFor({ state: 'detached' });
     await page.waitForTimeout(500);
+    // Static layout bounds exclude the intentional idle jump/rotation frames.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() => document.querySelector('.stage .piki')?.getAnimations().length === 0);
     const contained = await page.locator('.stage').evaluate((stage) => {
       const parent = stage.getBoundingClientRect();
       const image = stage.querySelector('img').getBoundingClientRect();
@@ -50,6 +53,7 @@ async function check(browser, url) {
     });
     await page.screenshot({ path: path.join(os.tmpdir(), 'dinga-audit-home.png') });
     assert.ok(contained.inside, 'Home character fits within the stage: ' + JSON.stringify(contained));
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
     await button('MY').click();
     assert.equal(await page.locator('.week .guitar-icon').count(), 7);
     assert.equal(await page.locator('.week .guitar-icon.off').count(), 5);

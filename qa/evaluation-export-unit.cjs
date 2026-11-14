@@ -53,5 +53,10 @@ const assert = require('node:assert/strict');
   assert.deepEqual(verdicts.map(v=>v.reason),['ambiguous','no-onset','no-microphone']);
   assert.equal(verdicts[0].classifier,'chroma-guard-v1');
   assert.equal(songDiagnostics([{t:'ok',c:true}],['Em'],'allok')[0].reason,'simulated');
-  console.log('PASS export participant isolation, schema, privacy allowlist, diagnostics, filenames and clipboard outcomes');
+  const course=buildEvaluationExport([{t:time,pid:'P1',type:'songplay_end',fromLesson:true,creditedSeconds:180}],options).events[0];
+  assert.equal(course.fromLesson,true);assert.equal(course.creditedSeconds,180);
+  for(const creditedSeconds of [-1,1.5,Number.MAX_SAFE_INTEGER+1,'180']){const bad=buildEvaluationExport([{t:time,pid:'P1',type:'songplay_end',fromLesson:'false',creditedSeconds}],options).events[0];assert.equal(Object.hasOwn(bad,'fromLesson'),false);assert.equal(Object.hasOwn(bad,'creditedSeconds'),false);}
+  assert.equal(buildEvaluationExport([{t:time,pid:'P1',type:'camera_failed',stage:'capture'}],options).events[0].stage,'capture');
+  assert.equal(Object.hasOwn(buildEvaluationExport([{t:time,pid:'P1',type:'camera_failed',stage:'data:image/private'}],options).events[0],'stage'),false);
+  console.log('PASS export participant isolation, schema, privacy allowlist, diagnostics, credit metadata, filenames and clipboard outcomes');
 })().catch(error=>{console.error(error);process.exitCode=1;});

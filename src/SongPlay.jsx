@@ -11,6 +11,7 @@ import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { useBeforeUnload } from './useBeforeUnload.js';
 
 const SP = content.songPractice;
+const COURSE_PART_SECONDS = 180;
 // 코드 하나 = 한 마디(4박). 화면 순서대로 편 목록
 const BARS = SP.sections.flatMap((sec, si) => sec.lines.flatMap((line, li) => line.map(([chord, lyric]) => ({ chord, lyric, si, li }))));
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
@@ -115,8 +116,10 @@ export function SongPlay({ s, update, go, params, paused = false }) {
     if (finished.current) return;
     finished.current = true;
     const { played, scored, score, beatAcc, chordAcc, secs, trans, coverage } = summarizeSong(list);
+    const complete = played === BARS.length; const fromLesson = !!params?.fromLesson;
+    const creditedSeconds = complete && fromLesson ? COURSE_PART_SECONDS : Math.round((played * 4 * 60) / ((SP.bpm * tempo) / 100));
     update((d) => {
-      const t = today(d); const first = !(d.challenge && d.challenge.done); const complete = played === BARS.length;
+      const t = today(d); const first = !(d.challenge && d.challenge.done);
       if (complete && d.panel.variant === 'idea') { d.challenge = { done: true }; if (first) logEvent('challenge_done', {}); }
       d.songPractice = {
         last: { score, beatAcc, chordAcc, tempo, secs, trans, coverage, bars: list, complete, judge: judgeMode, fromLesson: !!(params && params.fromLesson), firstComplete: complete && !d.songPractice.count, challengeFirst: complete && first, date: t, back },
@@ -124,9 +127,9 @@ export function SongPlay({ s, update, go, params, paused = false }) {
         best: complete && scored && judgeMode === 'mic' ? Math.max(d.songPractice.best, score) : d.songPractice.best,
       };
       if (complete && params && params.fromLesson) { d.done.song[2] = true; d.resume = null; }
-      d.history[t] = (d.history[t] || 0) + Math.round((played * 4 * 60) / ((SP.bpm * tempo) / 100));
+      d.history[t] = (d.history[t] || 0) + creditedSeconds;
     });
-    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode, complete: played === BARS.length, diagnostics: songDiagnostics(list, BARS.map((bar) => bar.chord), judgeMode) });
+    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode, complete, fromLesson, creditedSeconds, diagnostics: songDiagnostics(list, BARS.map((bar) => bar.chord), judgeMode) });
     sfx.done(); go('songreport', { back });
   };
 

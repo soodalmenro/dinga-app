@@ -529,7 +529,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     <div className="screen" key={idx}>
       <div className="row">
         <button className="iconbtn" onClick={() => setExit(true)} aria-label="나가기">✕</button>
-        <Progress n={now} total={total} />
+        <Progress n={now} total={total} label={step.type === 'transition' ? '코드 전환 진행' : '파트 진행'} unit={step.type === 'transition' ? '마디' : '단계'} />
         {step.type !== 'posture' && <button className="textbtn" onClick={() => { logEvent('stuck', { kind: step.type }); setStuck(true); }}>막혔어요</button>}
       </div>
       {live && cam === 'denied' && <div className="sub" style={{ fontSize: 12 }}>카메라를 쓸 수 없어 자세 알림 없이 연습해요</div>}
@@ -541,7 +541,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
       {step.type === 'beat' && <Beat key={idx} {...props} />}
       {step.type === 'blind' && <Blind {...props} />}
       {micOn === null && !inputLost && <button className="textbtn" onClick={skipMic}>마이크 없이 계속하기</button>}
-      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} restartCurrentBar={background.paused} params={{ pair: step.pair, onDone: next }} />}
+      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} restartCurrentBar={background.paused} params={{ pair: step.pair, onDone: next, onProgress: setTbar }} />}
       {step.type === 'transition' && !idea && <Transition pair={step.pair} next={next} speed={speed} setBarProgress={setTbar} running={!suspended} />}
       {exit && (
         <Modal onClose={() => setExit(false)}>

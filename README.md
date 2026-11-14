@@ -138,6 +138,8 @@ node qa/camera-preview.cjs
 node qa/result-comparison.cjs
 node qa/result-comparison-browser.cjs
 node qa/song-completion.cjs
+node qa/course-walkthrough.cjs
+node qa/embedded-progress.cjs
 node qa/resume-variant.cjs
 node qa/setting-integrity.cjs
 ```
@@ -163,3 +165,5 @@ Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지�
 레슨 단계의 자동 위치 저장, 완료 중복 방지와 저장 전 브라우저 이탈 보호는 [진행 복구](docs/PROGRESS_RECOVERY.md)에 정리했다.
 
 현재 범위의 남은 마무리 순서와 시간 추정은 [남은 작업](docs/REMAINING_WORK.md)을 참고한다. 실제 기타·휴대폰 검증은 마지막 단계다.
+
+최신 기획·Figma와 코스12파트의 대응, 두 구성의 정상 버튼 완주와 코스 적립 시간은 [코스 최종 대조](docs/COURSE_AUDIT.md)에 정리했다.

@@ -40,6 +40,11 @@ function cleanEvent(event) {
     const value = event[key];
     if (value === null || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value)) || text(value)) result[key] = value;
   }
+  if (event.type === 'songplay_end') {
+    if (typeof event.fromLesson === 'boolean') result.fromLesson = event.fromLesson;
+    if (Number.isSafeInteger(event.creditedSeconds) && event.creditedSeconds >= 0) result.creditedSeconds = event.creditedSeconds;
+  }
+  if (event.type === 'camera_failed' && ['preview', 'capture'].includes(event.stage)) result.stage = event.stage;
   if (record(event.coverage)) {
     const c = event.coverage;
     if (['played', 'total', 'evaluated', 'uncertain'].every((key) => Number.isInteger(c[key]) && c[key] >= 0)

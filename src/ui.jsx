@@ -148,8 +148,10 @@ export function Modal({ children, bottom, onClose }) {
   );
 }
 
-export function Progress({ n, total }) {
-  return <div className="prog">{Array.from({ length: total }, (_, i) => <i key={i} className={i < n ? 'on' : ''} />)}</div>;
+export function Progress({ n, total, label = '학습 진행', unit = '단계' }) {
+  return <div className="prog" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={total} aria-valuenow={n} aria-valuetext={`${total}${unit} 중 ${n}${unit}`}>
+    {Array.from({ length: total }, (_, i) => <i key={i} className={i < n ? 'on' : ''} />)}
+  </div>;
 }
 
 // 완료 순간의 색종이
