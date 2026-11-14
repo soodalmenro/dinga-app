@@ -17,7 +17,7 @@
 ## Tasks
 - [x] RED: repeated end clicks within one task produce duplicate end events/time; valid normal controls.
 - [x] GREEN: minimal per-attempt guard; partial double end, auto finish, report retry and empty end controls.
-- [ ] Relevant no-mic/score/quality/full regression; builds; review/docs; main rollout and live verification.
+- [x] Relevant no-mic/score/quality/full regression; builds; review/docs; main rollout and live verification.
 
 ## Ledger
 - RED: two synchronous clicks on the real end button produced 2 songplay_end events instead of 1 before implementation.
@@ -28,3 +28,4 @@
 - Final six browser cases passed after attendance guard. Added seventh save-failure/retry control; final read-only combined review found no actionable issues in sound/manual completion, new participant/reset, retries or course semantics.
 - Seventh save-failure/retry control passed. Final combined builds passed; JS `index-8fNEi9pw.js`, CSS `index-BHK6GL20.css`. Final-source full/quality/participant/attendance controls pending.
 - Final combined-source verification: full 140 pass / 0 fail, quality 10, participant handoff and attendance panel pause/resume passed. New completion seven paths passed. Final read-only review and diff checks clean. Remaining pre-physical estimate revised to2~3hours for course/design reconciliation plus final handoff; recognition accuracy remains unverified.
+- Rollout: source `960078a` fast-forwarded/pushed to main; Vercel `dinga-hlnllhhoe-hci24.vercel.app` Ready Production. Live `https://dinga-app.vercel.app/` matched reviewed JS/CSS and passed six smoke workflows and all seven completion scenarios, including duplicate attendance and save retry. Physical guitar/phone testing remains last.
