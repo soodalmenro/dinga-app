@@ -2,7 +2,7 @@
 // 자세: 화면 구성이 '아이디어 반영'이면 연주 단계 동안 작은 카메라로 보고 알림(P1),
 //       'PRD 원본'이면 파트 첫 단계에서 한 번 찍는다(14 · 15)
 import { Song } from './Song.jsx';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor } from './lib.js';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture } from './pose.js';
@@ -10,6 +10,7 @@ import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { observeMediaStream, mediaStreamIsLive } from './mediaLifecycle.js';
+import { useBeforeUnload } from './useBeforeUnload.js';
 
 const PART_SECONDS = 180; // 파트 하나 약 3분
 const TRANSITION_SECONDS = 120; // 전환 연습 약 2분
@@ -269,6 +270,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const [exit, setExit] = useState(false);
   const [stuck, setStuck] = useState(false);
   const [done, setDone] = useState(false);
+  const finished = useRef(false);
   const background = usePracticePause(!done);
   const microphone = useMicrophone();
   const { micOn, skipMic, inputLost } = microphone;
@@ -276,9 +278,18 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const start = useRef(Date.now());
   const pausedTime = useRef(0);
   const pausedAt = useRef(null);
+  const nativePause = useRef(null);
   const suspended = paused || exit || stuck || background.paused || inputLost;
   const speed = s.panel.speed;
-  const elapsed = () => Math.floor((((pausedAt.current ?? Date.now()) - start.current - pausedTime.current) / 1000) * speed);
+  useBeforeUnload(!done, () => {
+    if (pausedAt.current !== null || nativePause.current !== null) return undefined;
+    const at = Date.now(); nativePause.current = at;
+    return () => {
+      pausedTime.current += Math.max(0, Math.min(Date.now(), pausedAt.current ?? Infinity) - at);
+      nativePause.current = null;
+    };
+  });
+  const elapsed = () => Math.floor(((Math.min(pausedAt.current ?? Date.now(), nativePause.current ?? Infinity) - start.current - pausedTime.current) / 1000) * speed);
   useEffect(() => {
     if (suspended) pausedAt.current = background.pausedAt.current ?? Date.now();
     else if (pausedAt.current != null) {
@@ -289,6 +300,11 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const step = steps[idx];
   const chord = step.chord || (lesson ? lesson.chord : null);
   const back = target.back || 'learn';
+  const checkpoint = useCallback((at) => {
+    if (target.custom || target.review) return;
+    update((d) => { d.resume = { lesson: target.lesson, part: target.part, step: at }; });
+  }, [target.custom, target.review, target.lesson, target.part, update]);
+  useEffect(() => { if (!done) checkpoint(idx); }, [idx, done, checkpoint]);
 
   // 파트가 곡 연주로 바로 시작하면(레슨 4 · 파트 3, 자세 촬영이 없는 구성) 곧장 곡 화면으로 간다
   useEffect(() => { if (steps[idx].type === 'song') go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() }); }, []);
@@ -411,6 +427,8 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   useEffect(() => { logEvent('step', { lesson: target.lesson || 'transition', part: target.part, step: idx, kind: steps[idx].type }); }, [idx]);
 
   const finish = () => {
+    if (finished.current) return;
+    finished.current = true;
     update((d) => {
       const t = today(d);
       d.history[t] = (d.history[t] || 0) + (target.custom ? TRANSITION_SECONDS : PART_SECONDS);
@@ -421,9 +439,10 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     setDone(true); sfx.done();
   };
   const next = () => {
+    if (finished.current) return;
     const n = steps[idx + 1];
     if (!n) return finish();
-    if (n.type === 'song') return go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() });
+    if (n.type === 'song') { checkpoint(idx + 1); return go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() }); }
     return setIdx(idx + 1);
   };
   const nextRef = useRef(next); nextRef.current = next;

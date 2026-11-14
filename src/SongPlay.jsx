@@ -8,6 +8,7 @@ import { Piki, Modal, Confetti } from './ui.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
+import { useBeforeUnload } from './useBeforeUnload.js';
 
 const SP = content.songPractice;
 // 코드 하나 = 한 마디(4박). 화면 순서대로 편 목록
@@ -56,6 +57,7 @@ export function summarizeSong(list) {
 export function SongPlay({ s, update, go, params, paused = false }) {
   const [tempo, setTempo] = useState(40);
   const [phase, setPhase] = useState('wait'); // wait | play | pause
+  useBeforeUnload(phase !== 'wait');
   const [bar, setBar] = useState(0);
   const [beat, setBeat] = useState(0);
   const [res, setRes] = useState([]); // [{t:'ok'|'late'|'none', c:true|false}]

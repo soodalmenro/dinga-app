@@ -126,5 +126,33 @@ const { chromium } = require('playwright');
     assert.equal(await covered.evaluate(() => JSON.parse(localStorage.getItem('dinga-log')).filter(e => e.type === 'songplay_start').length), 1);
     assert.deepEqual(errors, []);
     console.log('PASS deployed panel pause, rate change and one start per attempt');
+    await covered.close();
+    const checkpoint = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    checkpoint.on('pageerror', error => errors.push(error.message));
+    await checkpoint.addInitScript(() => {
+      if (!localStorage.getItem('dinga-v1')) {
+        const d = new Date(); const date = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+        localStorage.setItem('dinga-v1', JSON.stringify({ attendances: [{date,method:'manual'}], panel:{alert:'off'} }));
+      }
+      navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('Denied','NotAllowedError'); };
+    });
+    await checkpoint.goto(process.env.QA_URL || 'https://dinga-app.vercel.app/');
+    await checkpoint.locator('.widget').click(); await checkpoint.locator('.splash').waitFor({state:'detached'});
+    await checkpoint.getByRole('button',{name:'학습',exact:true}).click();
+    await checkpoint.getByRole('button',{name:'코스 이어하기',exact:true}).click();
+    await checkpoint.locator('.sheet .card.lesson').first().click();
+    await checkpoint.getByRole('button',{name:'다음',exact:true}).click(); await checkpoint.locator('.dots').waitFor();
+    await checkpoint.waitForFunction(()=>JSON.parse(localStorage.getItem('dinga-v1')).resume?.step===1);
+    assert.deepEqual(await checkpoint.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')).resume),{lesson:'em',part:0,step:1});
+    let prompts=0; const accept=dialog=>{if(dialog.type()==='beforeunload')prompts++;return dialog.accept();};
+    checkpoint.on('dialog',accept);await checkpoint.reload();checkpoint.off('dialog',accept);assert.equal(prompts,1);
+    await checkpoint.locator('.widget').click();await checkpoint.locator('.splash').waitFor({state:'detached'});
+    await checkpoint.getByRole('button',{name:'이어서 연습하기 ›',exact:true}).click();await checkpoint.locator('.dots').waitFor();
+    await checkpoint.getByRole('button',{name:'다음',exact:true}).click();await checkpoint.getByRole('heading',{name:'파트 완료!',exact:true}).waitFor();
+    await checkpoint.waitForFunction(()=>{const s=JSON.parse(localStorage.getItem('dinga-v1'));return s.done.em[0]&&s.resume===null;});
+    await checkpoint.evaluate(()=>{window.dispatchEvent(new Event('dinga-skip'));window.dispatchEvent(new Event('dinga-skip'));});
+    const complete=await checkpoint.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')));
+    assert.equal(complete.resume,null);assert.equal(complete.done.em[0],true);assert.equal(Object.values(complete.history).reduce((a,b)=>a+b,0),180);
+    assert.deepEqual(errors,[]);console.log('PASS deployed checkpoint, native reload prompt, restore and single completion');
   } finally { await browser.close(); }
 })().catch((error) => { console.error(error); process.exitCode = 1; });

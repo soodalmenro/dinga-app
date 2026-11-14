@@ -5,6 +5,7 @@ import { Piki, Modal, Confetti } from './ui.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
+import { useBeforeUnload } from './useBeforeUnload.js';
 
 const SONG = content.songChart.bars;
 const pairBars = (p) => [p[0], p[0], p[1], p[1], p[0], p[0], p[1], p[1]];
@@ -14,6 +15,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   const pair = params && params.pair; const BARS = pair ? pairBars(pair) : SONG; const emb = params && params.onDone; // emb = 레슨 안 전환 단계
   const [tempo, setTempo] = useState(80);
   const [phase, setPhase] = useState('wait'); // wait | play
+  useBeforeUnload(!emb && phase === 'play');
   const background = usePracticePause(!emb && phase === 'play');
   const [bar, setBar] = useState(0);
   const [beat, setBeat] = useState(0);

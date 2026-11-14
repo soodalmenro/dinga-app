@@ -5,7 +5,7 @@ const channel = process.env.QA_BROWSER_CHANNEL;
 const ds = (off) => { const d = new Date(); d.setDate(d.getDate() + off); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
 let lastPage;
 let VARIANT = 'prd'; // A·B는 PRD 원본 흐름, C는 아이디어 반영 흐름
-async function mk(b) { const c = await b.newContext({ viewport: { width: 375, height: 812 } }); await c.addInitScript((v) => { if (!localStorage.getItem('dinga-v1')) localStorage.setItem('dinga-v1', JSON.stringify({ panel: { variant: v } })); }, VARIANT); const p = await c.newPage(); lastPage = p; p.errs = []; p.on('pageerror', (e) => p.errs.push(e.message)); return p; }
+async function mk(b) { const c = await b.newContext({ viewport: { width: 375, height: 812 } }); await c.addInitScript((v) => { if (!localStorage.getItem('dinga-v1')) localStorage.setItem('dinga-v1', JSON.stringify({ panel: { variant: v } })); }, VARIANT); const p = await c.newPage(); lastPage = p; p.on('dialog', dialog => dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss()); p.errs = []; p.on('pageerror', (e) => p.errs.push(e.message)); return p; }
 const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('dinga-v1')));
 const setSt = async (p, patch) => { await p.evaluate((patch) => { const base = JSON.parse(localStorage.getItem('dinga-v1')); const s = { ...base, ...patch, panel: { ...base.panel, ...(patch.panel || {}) } }; localStorage.setItem('dinga-v1', JSON.stringify(s)); }, patch); await p.reload(); await p.waitForTimeout(700); };
 const txt = (p) => p.evaluate(() => document.body.innerText);

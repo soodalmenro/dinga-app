@@ -11,6 +11,7 @@ import PracticeSetup from './PracticeSetup.jsx';
 import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
 import { getLogStorageMode } from './lib.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
+import { useBeforeUnload } from './useBeforeUnload.js';
 
 const TABS = ['home', 'learn', 'practice', 'my'];
 
@@ -487,6 +488,7 @@ export default function App() {
   const [panel, setPanel] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
   const [storageError, setStorageError] = useState(false);
+  useBeforeUnload(storageError);
   const appRef = useRef(null);
   const update = useCallback((fn) => setS((prev) => { const d = JSON.parse(JSON.stringify(prev)); fn(d); return d; }), []);
   useEffect(() => { setStorageError(!save(s)); }, [s]);
