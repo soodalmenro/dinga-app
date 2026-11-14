@@ -504,7 +504,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
         <Confetti />
         <div className="grow rel w100"><Sparkles /><div className="avatar pop" style={{ width: 280, height: 280 }}><Piki name="clap" size={220} /></div></div>
         <h1 style={{ fontSize: 30, color: 'var(--ot)' }}>{target.custom ? '전환 연습 완료!' : '파트 완료!'}</h1>
-        <div className="sub">‘{def.title}’ 완료</div>
+        <div className="sub">‘{idea && ['em', 'g', 'c'].includes(target.lesson) && target.part === 1 ? '코드 잡기' : def.title}’ 완료</div>
         <div className="row w100">
           <div className="chip" style={{ background: 'var(--o)' }}><span>이번 연습</span><b style={{ color: 'var(--ot)' }}>{target.custom ? 2 : 3}분</b></div>
           <div className="chip" style={{ background: '#F2617A' }}><span>오늘 연습</span><b style={{ color: '#F2617A' }}>{mins}분</b></div>

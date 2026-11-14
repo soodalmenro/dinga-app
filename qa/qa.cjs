@@ -37,7 +37,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('학습: 챕터 1, 레슨 4개, 챕터 2 곧 열려요', ['필수 코드: Em, G, C', '레슨 1 · Em 코드', '레슨 2 · G 코드', '레슨 3 · C 코드', '레슨 4 · 첫 곡', '챕터 2 · 곧 열려요'].every((x) => t.includes(x)));
   await p.getByText('레슨 3 · C 코드').click(); await p.waitForTimeout(300);
   ok('잠금 없음: 레슨 3 팝업이 바로 열리고 파트 3개', (await txt(p)).includes('파트 3 · 소리 내기'));
-  await p.locator('.sheet .iconbtn').click();
+  await btn(p, '레슨 선택 닫기').click();
   // 레슨 1 파트 1: 자세 확인이 첫 단계
   await p.getByText('레슨 1 · Em 코드').click(); await p.getByText('파트 1 · 준비').click(); await p.waitForTimeout(900);
   t = await txt(p);
@@ -275,7 +275,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('[끝내기]: 친 데까지로 리포트, 완료 띠는 다시 안 나옴, 횟수 그대로', t.includes('여기까지 쳤어요') && !t.includes('친구와 같은 곡 연습 완료!') && s.songPractice.count === 1, t.slice(0, 120));
   await btn(p, '완료').click(); await p.waitForTimeout(300);
   ok('리포트 [완료] → 들어온 곳(MY)', (await txt(p)).includes('내 기록'));
-  await btn(p, '학습').click(); await btn(p, '코스 이어하기').click(); await p.locator('.sheet .iconbtn').click(); await panel(); await p.locator('.panel-row', { hasText: '레슨 1~3 완료 처리' }).locator('button').click(); await btn(p, '닫기').click(); await p.waitForTimeout(300);
+  await btn(p, '학습').click(); await btn(p, '코스 이어하기').click(); await btn(p, '레슨 선택 닫기').click(); await panel(); await p.locator('.panel-row', { hasText: '레슨 1~3 완료 처리' }).locator('button').click(); await btn(p, '닫기').click(); await p.waitForTimeout(300);
   await p.getByText('완주하기', { exact: true }).click(); await p.waitForTimeout(300); t = await txt(p);
   ok('04-1 완주하기 팝업: 전환 연습 · 박자 맞추기 · 완주', ['파트 1 · 전환 연습', '파트 2 · 박자 맞추기', '파트 3 · 완주', '딩가의 첫 노래를 끝까지 치기'].every((x) => t.includes(x)), t.slice(-200));
   await p.getByText('파트 1 · 전환 연습').click(); await p.waitForTimeout(600); await btn(p, '다음').click(); await p.waitForTimeout(800); t = await txt(p);
@@ -285,13 +285,13 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await panel(); await p.locator('.sheet').getByRole('button', { name: '다음', exact: true }).click(); await p.waitForTimeout(800);
   ok('전환 연습 파트 완료', (await txt(p)).includes('파트 완료!'));
   await btn(p, '홈으로').click(); await btn(p, '학습').click(); await btn(p, '코스 이어하기').click(); await p.waitForTimeout(300);
-  await p.locator('.sheet .iconbtn').click(); await p.getByText('완주하기', { exact: true }).click(); await p.waitForTimeout(300);
+  await btn(p, '레슨 선택 닫기').click(); await p.getByText('완주하기', { exact: true }).click(); await p.waitForTimeout(300);
   await p.getByText('파트 3 · 완주').click(); await p.waitForTimeout(1500);
   ok('완주하기 파트 3: 새 곡 연습 화면으로 감 (딩가의 첫 노래 · 완주)', await p.locator('.sp-bar').count() === 12 && (await txt(p)).includes('딩가의 첫 노래 · 완주'), (await txt(p)).slice(0, 60));
   if ((await txt(p)).includes('바로 시작')) await p.getByText('바로 시작').click();
   await p.waitForFunction(() => document.body.innerText.includes('곡 연습 리포트'), null, { timeout: 90000 }); s = await st(p);
   ok('완주 → 곡 연습 리포트, 파트 3 완료 처리', s.done.song[2] === true, JSON.stringify(s.done.song));
-  await btn(p, '완료').click(); await p.waitForTimeout(300); await btn(p, '코스 이어하기').click(); await p.waitForTimeout(300); await p.locator('.sheet .iconbtn').click();
+  await btn(p, '완료').click(); await p.waitForTimeout(300); await btn(p, '코스 이어하기').click(); await p.waitForTimeout(300); await btn(p, '레슨 선택 닫기').click();
   ok('[완료] → 학습 → 코스 상세', (await txt(p)).includes('코스 1'));
   await panel(); await p.locator('.panel-row', { hasText: '코스 1 전부 완료 처리' }).locator('button').click(); await btn(p, '닫기').click(); await p.waitForTimeout(300);
   ok('코스를 다 끝내면 12/12 + 연습 탭 안내', await p.locator('button.locked').count() === 0 && (await txt(p)).includes('12/12') && (await txt(p)).includes('연습 탭 [곡 연습]'));

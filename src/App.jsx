@@ -6,6 +6,9 @@ import { Song, Report } from './Song.jsx';
 import { SongPlay, SongReport } from './SongPlay.jsx';
 import guitarOn from './img/guitar-on.svg';
 import guitarOff from './img/guitar-off.svg';
+import courseClose from './img/course-close.svg';
+import courseCheck from './img/course-check.svg';
+import courseChevron from './img/course-chevron.svg';
 import { useMicrophone } from './useMicrophone.js';
 import PracticeSetup from './PracticeSetup.jsx';
 import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
@@ -181,6 +184,13 @@ const Lock = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 function Course({ s, go, params }) {
   const [view, setView] = useState(params && params.course ? 'course' : 'list');
   const [open, setOpen] = useState(null);
+  const lessonButtons = useRef({});
+  const previousOpen = useRef(null);
+  useEffect(() => {
+    // The list's Continue button is replaced by course detail when it opens a part dialog.
+    if (!open && previousOpen.current) lessonButtons.current[previousOpen.current]?.focus();
+    previousOpen.current = open;
+  }, [open]);
   const C = content.course; const LS = lessonsFor(s);
   const doneCount = Object.values(s.done).flat().filter(Boolean).length;
   const codesDone = ['em', 'g', 'c'].every((k) => s.done[k].every(Boolean));
@@ -225,7 +235,7 @@ function Course({ s, go, params }) {
         const d = s.done[l.id]; const resume = s.resume && s.resume.lesson === l.id; const lk = locked(l);
         return (<React.Fragment key={l.id}>
           {l.id === 'song' && <div className="divider">코드 3개를 한 번에</div>}
-          <button className={`card lesson tap${resume ? ' sel' : ''}${lk ? ' locked' : ''}`} disabled={lk} onClick={() => setOpen(l.id)} style={{ textAlign: 'left' }}>
+          <button ref={node => { lessonButtons.current[l.id] = node; }} className={`card lesson tap${resume ? ' sel' : ''}${lk ? ' locked' : ''}`} disabled={lk} onClick={() => setOpen(l.id)} style={{ textAlign: 'left' }}>
             <span className={`num${d.every(Boolean) ? ' done' : ''}`}>{d.every(Boolean) ? '✓' : i + 1}</span>
             <span style={{ flex: 1 }}><b style={{ display: 'block', fontSize: 15 }}>{l.weekLabel}</b><span className="sub" style={{ fontSize: 12 }}>{resume ? '이어서 하기' : l.sub}{lk ? <><br />레슨 1~3을 마치면 열려요</> : null}</span></span>
             {lk ? <Lock /> : <span className="pdots">{d.map((v, k) => <i key={k} className={v ? 'on' : ''} />)}</span>}
@@ -234,16 +244,19 @@ function Course({ s, go, params }) {
       })}
       {allDone && <div className="card soft tc" style={{ fontSize: 13, fontWeight: 700 }}>코스 완료! 곡은 연습 탭 [곡 연습]에서 다시 칠 수 있어요</div>}
       {L && (
-        <Modal onClose={() => setOpen(null)}>
-          <div className="row between"><h1 style={{ fontSize: 20 }}>{L.weekLabel}</h1><button className="iconbtn" aria-label="레슨 선택 닫기" onClick={() => setOpen(null)}>✕</button></div>
-          <div className="sub" style={{ fontSize: 13 }}>하고 싶은 파트를 골라요</div>
+        <Modal onClose={() => setOpen(null)} className={`course-parts${L.id === 'song' ? ' course-parts-song' : ''}`}
+          decoration={<div className="course-part-mascot" aria-hidden="true"><Piki name={L.id === 'song' ? 'yay' : 'hi'} size={L.id === 'song' ? 80 : 66} still /></div>}>
+          <div className="course-part-heading">
+            <div className="row between"><h1>{L.weekLabel}</h1><button className="course-part-close" aria-label="레슨 선택 닫기" onClick={() => setOpen(null)}><img src={courseClose} alt="" /></button></div>
+            <div className="course-part-chords">{L.id === 'song' && C.chords.map(chord => <span className="pill" key={chord}>{chord}</span>)}<span className="sub">하고 싶은 파트를 골라요</span></div>
+          </div>
           {L.parts.map((p, i) => {
             const done = s.done[L.id][i]; const resume = s.resume && s.resume.lesson === L.id && s.resume.part === i;
             return (
-              <button key={i} className={`card lesson tap${resume ? ' sel' : ''}`} style={{ textAlign: 'left', background: resume ? 'var(--sb)' : '#fff' }} onClick={() => go('lesson', { lesson: L.id, part: i, step: resume ? s.resume.step : 0, key: Date.now() })}>
-                <span className={`num${done ? ' done' : ''}`}>{done ? '✓' : i + 1}</span>
-                <span style={{ flex: 1 }}><b style={{ display: 'block', fontSize: 15 }}>파트 {i + 1} · {p.title}</b><span className="sub" style={{ fontSize: 12 }}>{p.sub ? <>{p.sub}<br /></> : null}{resume ? '약 3분 · 이어서 하기' : done ? '완료 · 다시 해볼 수 있어요' : '약 3분'}</span></span>
-                <b style={{ color: 'var(--gray)', fontSize: 20 }}>›</b>
+              <button key={i} className={`card lesson tap${resume ? ' sel' : ''}`} onClick={() => go('lesson', { lesson: L.id, part: i, step: resume ? s.resume.step : 0, key: Date.now() })}>
+                <span className={`num${done ? ' done' : ''}`}>{done ? <img src={courseCheck} alt="완료" /> : i + 1}</span>
+                <span className="course-part-copy"><b className="course-part-title">파트 {i + 1} · {L.id !== 'song' && i === 1 ? '코드 잡기' : p.title}</b><span className="sub">{p.sub ? <>{p.sub}<br /></> : null}{resume ? '약 3분 · 이어서 하기' : done ? '완료 · 다시 해볼 수 있어요' : '약 3분'}</span></span>
+                <img className="course-part-chevron" src={courseChevron} alt="" />
               </button>
             );
           })}

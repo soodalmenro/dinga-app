@@ -103,7 +103,7 @@ export function Chord({ name, highlight = -1, upTo = 99, scale = 1 }) {
   );
 }
 
-export function Modal({ children, bottom, onClose }) {
+export function Modal({ children, bottom, onClose, className = '', decoration }) {
   const dialog = useRef(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -141,9 +141,10 @@ export function Modal({ children, bottom, onClose }) {
       if (previous && previous.isConnected) previous.focus({ preventScroll: true });
     };
   }, [titleId]);
+  const sheet = <div className="sheet" role="dialog" aria-modal="true" tabIndex={-1} ref={dialog} onClick={(e) => e.stopPropagation()}>{children}</div>;
   return (
-    <div className={`modal${bottom ? ' bottom' : ''}`} onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" tabIndex={-1} ref={dialog} onClick={(e) => e.stopPropagation()}>{children}</div>
+    <div className={`modal${bottom ? ' bottom' : ''}${className ? ` ${className}` : ''}`} onClick={onClose}>
+      {decoration ? <div className="modal-frame">{decoration}{sheet}</div> : sheet}
     </div>
   );
 }

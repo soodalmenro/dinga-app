@@ -139,6 +139,7 @@ node qa/result-comparison.cjs
 node qa/result-comparison-browser.cjs
 node qa/song-completion.cjs
 node qa/course-walkthrough.cjs
+node qa/course-modal.cjs
 node qa/embedded-progress.cjs
 node qa/resume-variant.cjs
 node qa/setting-integrity.cjs

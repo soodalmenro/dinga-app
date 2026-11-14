@@ -21,6 +21,7 @@
 - [동작 줄이기·확대 팝업 가독성](ACCESSIBILITY_MOTION.md)
 - [단계 자동 저장·완료 중복 방지·브라우저 이탈 보호](PROGRESS_RECOVERY.md)
 - [12파트 대조·코스 시간·진행 표시](COURSE_AUDIT.md)
+- [Figma 파트 선택 모달·작은 화면·키보드 복귀](COURSE_MODAL.md)
 
 ## 기록과 평가 설정
 
