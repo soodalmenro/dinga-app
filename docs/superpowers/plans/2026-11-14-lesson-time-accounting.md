@@ -20,7 +20,7 @@
 ## Tasks
 - [x] RED: Browser reproductions for 3→1 retained saved time, 1→3 sub-minute exit, multiple changes/fractional segments and paused time exclusion. Observe failures before implementation.
 - [x] GREEN: Minimal Lesson segment accounting; focused regression. Broader checkpoint/native-dialog/panel checks below.
-- [ ] Both builds, full regression, fresh read-only review, docs, main rollout and live smoke.
+- [x] Both builds, full regression, fresh read-only review, docs, main rollout and live smoke.
 
 ## Ledger
 - Root cause: `elapsed()` multiplies all prior active time by current `s.panel.speed`, so changing speed rewrites elapsed time retroactively.
@@ -28,3 +28,4 @@
 - Expanded seven browser cases all passed, including native-wait and exact 60 / just-under-60 thresholds. Final read-only review found no confirmed actionable issues in pause overlap, native resume or segment precision.
 - Both builds passed. Source JS `index-ZtuH3N9l.js`, CSS `index-BHK6GL20.css`. Final full and focused regressions pending.
 - Final regression: full 140 pass / 0 fail; checkpoint/unload 10, panel pause/rate 9, settings integrity 8 and quality 10 all passed. `git diff --check` clean. No source changes after builds or final review.
+- Rollout: source `860f728` fast-forwarded/pushed to main; Vercel `dinga-ol7njb8u3-hci24.vercel.app` Ready Production. Live smoke passed all six workflows with exact local JS/CSS match. Added `QA_URL` target selection to the elapsed-time fixture and ran all seven boundary scenarios against `https://dinga-app.vercel.app/`: all passed. Physical testing remains last.

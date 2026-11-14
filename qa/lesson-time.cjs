@@ -7,7 +7,7 @@ async function rate(p,value){await panel(p);await p.locator('.panel-row',{hasTex
  try{const browser=await chromium.launch({channel:process.env.QA_BROWSER_CHANNEL});try{let failures=0;
  for(const kind of ['slow-down','speed-up','segments','paused','native-wait','threshold-save','threshold-discard']){const context=await browser.newContext({viewport:{width:390,height:844}});const p=await context.newPage();
  try{await p.addInitScript(speed=>{const d=new Date();const date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');localStorage.setItem('dinga-v1',JSON.stringify({attendances:[{date,method:'manual'}],panel:{speed,alert:'off'},resume:{lesson:'em',part:0,step:0}}));window.lessonClock=Date.now();Date.now=()=>window.lessonClock;},kind==='speed-up'?1:3);
- await p.goto('http://127.0.0.1:'+server.httpServer.address().port);await p.locator('.widget').click();await p.locator('.splash').waitFor({state:'detached'});await btn(p,'이어서 연습하기 ›').click();await btn(p,'다음').waitFor();
+ await p.goto(process.env.QA_URL||'http://127.0.0.1:'+server.httpServer.address().port);await p.locator('.widget').click();await p.locator('.splash').waitFor({state:'detached'});await btn(p,'이어서 연습하기 ›').click();await btn(p,'다음').waitFor();
  let expected;
  if(kind==='slow-down'){await advance(p,21000);await rate(p,1);await advance(p,5000);expected=68;}
  if(kind==='speed-up'){await advance(p,30000);await rate(p,3);await advance(p,5000);expected=45;}
