@@ -18,7 +18,7 @@
 ## Tasks
 - [x] RED→GREEN: idea↔PRD retained lesson step, posture fallback, song part fallback, corrupt resume, no mutation/completion/time changes.
 - [x] RED→GREEN: active practice disables PID/variant edits, outside-screen edits still work, resume survives reload; other panel actions remain usable.
-- [ ] Relevant checkpoint/panel/export/quality/full QA and both builds; read-only review; document and deploy via existing main→Vercel flow.
+- [x] Relevant checkpoint/panel/export/quality/full QA and both builds; read-only review; document and deploy via existing main→Vercel flow.
 
 ## Ledger
 - Ruling: use existing checkout on feature branch with established authorized rollout; no physical-testing handoff.
@@ -28,3 +28,4 @@
 - Both production builds passed; JS `index-B_1WC27M.js`, CSS `index-BHK6GL20.css`. Broader regression and deployment verification pending.
 - Existing full-suite fixture tried editing PID on the attendance screen. The new lock correctly blocked it; moved its unchanged PID assertion/setup before entering attendance and reran the suite. Product lock was not weakened.
 - Final full regression: 140 pass / 0 fail. Checkpoint/unload 10, evaluation pause/rate 9, clipboard/download/retention export, participant handoff and quality 10 all passed. Built-preview smoke passed all six workflows including the new settings mapping/lock check. `git diff --check` clean.
+- Rollout: source commit `871cdf8` fast-forwarded and pushed to main. Vercel `dinga-4rm9dsi3x-hci24.vercel.app` Ready (Production). Live `https://dinga-app.vercel.app/` matched local JS/CSS and passed all six smoke workflows, including variant mapping and active settings lock. No physical-test handoff; recognition accuracy still requires the final real-device/guitar phase.
