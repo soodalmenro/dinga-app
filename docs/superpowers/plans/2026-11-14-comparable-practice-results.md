@@ -18,7 +18,7 @@
 ## Tasks
 - [x] RED: actual Report rendering mixes different pairs, tempo and judging modes; positive same-condition/first-attempt controls.
 - [x] GREEN: predicate and precise report messages; condition boundaries + real-browser report flow.
-- [ ] Update incompatible old QA expectation; relevant report/storage/layout and full regressions, both builds, review/docs and live rollout.
+- [x] Update incompatible old QA expectation; relevant report/storage/layout and full regressions, both builds, review/docs and live rollout.
 
 ## Ledger
 - Root cause: Report compares any `s.song.prev` without checking exercise/tempo/mode; current full QA even expects hard→allok to count as improvement.
@@ -30,3 +30,4 @@
 - Both builds passed; JS `index-av-qhljI.js`, CSS `index-BHK6GL20.css`. Existing pure stored-result recovery 8 passed. Final full/report/recovery/panel/layout regressions pending; no source changes after review/build.
 - Final full regression: 140 pass / 0 fail. Stored-result 8, storage recovery/retry, media recovery 5, panel pause/rate 9, report/exception 3 and mobile layout 12 all passed. New comparison browser fixture additionally checks the incompatible-report message at 320px; final narrow-screen run pending.
 - Final comparison browser run: all seven passed, including 320px incompatible-report containment and stored metadata/results preserved after reload. `git diff --check` clean.
+- Rollout: source `4387e7c` fast-forwarded/pushed to main; Vercel `dinga-ksw98wbx0-hci24.vercel.app` Ready Production. Live `https://dinga-app.vercel.app/` matched reviewed JS/CSS and passed six smoke workflows plus all seven comparison browser cases. Physical phone/guitar testing remains last.
