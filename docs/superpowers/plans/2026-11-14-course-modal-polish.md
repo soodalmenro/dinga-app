@@ -14,8 +14,8 @@ Completion subtitle retains Em/G/C pills; do not restore Figma's obsolete8bar de
 
 - [x] Baseline/design capture and meaningful mobile/keyboard/scroll regression for course modals. Reproduce missing decoration/copy before editing.
 - [x] Minimal Modal decoration/class extension plus Course-only native layout, local icon slots and idea title. Verify390 geometry and320/short/enlarged layouts; compare captures to targets.
-- [ ] Both builds, whole140 suite and relevant course24/progress/completion/quality/mobile/motion/export regressions. One fresh read-only final review, integrate authorized main/Vercel deployment and live smoke/course/modal checks.
-- [ ] Update handoff/remaining-work documents with verified state and physical testing last.
+- [x] Both builds, whole140 suite and relevant course24/progress/completion/quality/mobile/motion/export regressions. One fresh read-only final review, integrate authorized main/Vercel deployment and live smoke/course/modal checks.
+- [x] Update handoff/remaining-work documents with verified state and physical testing last.
 
 ## Ledger
 
@@ -28,3 +28,6 @@ Completion subtitle retains Em/G/C pills; do not restore Figma's obsolete8bar de
 - Final builds passed: JS index-Tdxh_uQ5.js / CSS index-C_Vl6adR.css; single-file805.97kB (gzip471.40kB). No product source changes after these builds. Final390px screenshots inspected for both character slots, SVG sizes, sheet/card geometry and latest song copy.
 - Earlier focused group passed normal24parts, progress3, completion9 (including actual JSON credit downloads), mobile12, design/content, motion3, export browser, resume134 and settings8. Those preceded only the final focus-scroll change; final modal/quality and whole suite cover that fix, and live checks will use the final bundle.
 - Final whole suite140/140 passed with exit0 on the final production build. The P2 fix pass is verified by modal11/11, quality10/10 and whole140/140. No remaining review findings; no recognition or curriculum changes.
+- Source commit0c168b6 fast-forwarded into main and pushed without force. Vercel dinga-936sv2nu0-hci24.vercel.app reached Ready; https://dinga-app.vercel.app matches reviewed JS index-Tdxh_uQ5.js and CSS index-C_Vl6adR.css.
+- Live final bundle: deployed smoke6/6, normal24parts (both variants2160seconds), modal11/11 including visible focus, completion9/9 including two actual JSON credit downloads passed, all exit0. No real guitar/camera accuracy inference from these software checks.
+- Handoff, audit, modal provenance and remaining-work documents updated. The previously scheduled45–90minute visual/deployment work is now handled. No separately scheduled pre-physical feature/visual tasks remain in the agreed course1 scope. Physical guitar/phone validation and evidence-based corrections remain last.
