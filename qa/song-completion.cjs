@@ -1,8 +1,23 @@
-const assert=require('node:assert/strict');const{chromium}=require('playwright');const SP=require('../src/content.json').songPractice;
+const assert=require('node:assert/strict');const fs=require('node:fs');const{chromium}=require('playwright');const SP=require('../src/content.json').songPractice;
 const btn=(p,name)=>p.getByRole('button',{name,exact:true});const snapshot=p=>p.evaluate(()=>({s:JSON.parse(localStorage.getItem('dinga-v1')),log:JSON.parse(localStorage.getItem('dinga-log')||'[]')}));
 const seconds=last=>last.complete&&last.fromLesson?180:Math.round(last.coverage.played*4*60/(SP.bpm*last.tempo/100));const total=s=>Object.values(s.history).reduce((a,b)=>a+b,0);
 async function start(p){await p.getByRole('button',{name:/바로 시작/}).click();}
 async function doubleEnd(p){await p.locator('.sp-bar.ok').first().waitFor();await p.evaluate(()=>{const end=[...document.querySelectorAll('.sp-ctl button')].find(b=>b.textContent.includes('끝내기'));end.click();end.click();});await p.getByRole('heading',{name:'곡 연습 리포트',exact:true}).waitFor();}
+async function checkDownloadedCredit(p, expectedEvents) {
+  for (let i=0;i<3;i++) await p.mouse.click(375,18);
+  await p.getByRole('heading',{name:'평가 패널',exact:true}).waitFor();
+  const pending=p.waitForEvent('download');
+  await btn(p,'JSON 저장').click();
+  const data=JSON.parse(fs.readFileSync(await (await pending).path(),'utf8'));
+  const ended=data.events.filter(event=>event.type==='songplay_end');
+  assert.equal(data.schemaVersion,1);
+  assert.equal(ended.length,expectedEvents);
+  assert.ok(ended.every(event=>event.fromLesson===true));
+  assert.equal(ended.at(-1).creditedSeconds,180);
+  assert.equal(ended.at(-1).complete,true);
+  if(expectedEvents===2){assert.equal(ended[0].complete,false);assert.ok(ended[0].creditedSeconds>0);}
+  console.log('PASS downloaded course credit and partial/retry diagnostics');
+}
 (async()=>{const{createServer}=await import('vite');const server=await createServer({server:{host:'127.0.0.1',port:0}});await server.listen();
  try{const browser=await chromium.launch({channel:process.env.QA_BROWSER_CHANNEL});try{let failures=0;
  for(const kind of process.env.QA_COMPLETION_CASES?.split(',')||['partial-double','automatic','retry','empty-end','course-retry','attendance-double','save-retry','course-fast','course-unmeasured']){const context=await browser.newContext({viewport:{width:390,height:844}});const p=await context.newPage();const errors=[];p.on('pageerror',e=>errors.push(e.message));
@@ -16,6 +31,7 @@ async function doubleEnd(p){await p.locator('.sp-bar.ok').first().waitFor();awai
  if(!['automatic','empty-end','save-retry','course-fast','course-unmeasured'].includes(kind)){await doubleEnd(p);const partial=await snapshot(p);assert.equal(partial.log.filter(e=>e.type==='songplay_end').length,1,'one end event per attempt');assert.equal(partial.s.songPractice.count,2);assert.equal(partial.s.songPractice.best,81);assert.equal(partial.s.songPractice.last.complete,false);firstTime=seconds(partial.s.songPractice.last);assert.equal(partial.log.filter(e=>e.type==='songplay_end').at(-1).creditedSeconds,firstTime);assert.equal(total(partial.s),firstTime);if(kind==='course-retry'){assert.equal(partial.s.done.song[2],false);assert.deepEqual(partial.s.resume,{lesson:'song',part:2,step:0});}if(kind==='partial-double'){assert.deepEqual(errors,[]);console.log('PASS song completion '+kind);continue;}await btn(p,'다시 연주').click();await start(p);}
  await p.getByRole('heading',{name:'곡 연습 리포트',exact:true}).waitFor({timeout:15000});if(kind==='save-retry'){await btn(p,'저장 다시 시도').waitFor();const failed=await snapshot(p);assert.equal(failed.s.songPractice.count,2);assert.equal(failed.s.songPractice.last,null);assert.equal(failed.log.filter(e=>e.type==='songplay_end').length,1);await p.evaluate(()=>window.completionStorageBlocked=false);await btn(p,'저장 다시 시도').click();await p.waitForFunction(()=>JSON.parse(localStorage.getItem('dinga-v1')).songPractice.count===3);}
  const result=await snapshot(p);const expectedEvents=['retry','course-retry'].includes(kind)?2:1;const ended=result.log.filter(e=>e.type==='songplay_end');assert.equal(ended.length,expectedEvents);assert.equal(ended.at(-1).creditedSeconds,seconds(result.s.songPractice.last));assert.equal(ended.at(-1).fromLesson,kind.startsWith('course-'));assert.equal(result.s.songPractice.count,3);assert.equal(result.s.songPractice.best,81);assert.equal(result.s.songPractice.last.complete,true);assert.equal(total(result.s),firstTime+seconds(result.s.songPractice.last));if(kind.startsWith('course-')){assert.equal(result.s.done.song[2],true);assert.equal(result.s.resume,null);assert.equal(ended.at(-1).creditedSeconds,180);}if(kind==='course-unmeasured')assert.equal(result.s.songPractice.last.score,null);assert.deepEqual(errors,[]);console.log('PASS song completion '+kind);
+ if(['course-fast','course-retry'].includes(kind))await checkDownloadedCredit(p,expectedEvents);
  }catch(e){failures++;console.error('FAIL '+kind+': '+e.message);}finally{await context.close();}}
  if(failures)process.exitCode=1;
  }finally{await browser.close();}}finally{await server.close();}

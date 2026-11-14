@@ -18,7 +18,7 @@
 - [x] RED: full normal-button walkthrough both variants; embedded transition parent progress matches finished bars; full course credits nominal12×180.
 - [x] Fix only confirmed course defects; prove GREEN, including repeated transition remount and mixed-speed pause/recovery.
 - [x] Inspect actual rendered course/modal/transition layouts and document asset reuse/out-of-scope visual differences.
-- [ ] Both builds, relevant/full regressions, final read-only review and authorized main/Vercel/live rollout. Update remaining scope accurately.
+- [x] Both builds, relevant/full regressions, final read-only review and authorized main/Vercel/live rollout. Update remaining scope accurately.
 
 ## Ledger
 - Hour started2026-11-14 13:02:51UTC; target around14:02:51UTC. Productive work budget; no physical-test handoff.
@@ -31,3 +31,7 @@
 - Final production/single-file builds passed; source bundle index-D3lk-zEd.js / index-BHK6GL20.css. Whole suite140/140 passed. Full24part walkthrough, progress3, completion9, quality10, export browser/unit and mobile12 passed on this source.
 - Captured and inspected course modals, transition and completion. Initial static Home image bounds check sampled an intentional idle jump; the static layout check now uses reduced motion, then restores the preference. Design/content retry passed, and the separate default/reduced/legacy motion cleanup checks3/3 passed. This does not assert that every animated frame stays inside its stage.
 - Fresh-context read-only source/test/export review returned no actionable findings. No source changes after final builds/review; only QA capture/static-layout conditions and documentation changed.
+- Integrated source commit bda4d0c into main by fast-forward and pushed without force. Vercel production deployment dinga-8nlx726tt-hci24.vercel.app reached Ready. Public alias https://dinga-app.vercel.app matched the reviewed JS/CSS bundles.
+- Live: deployed smoke6, normal24part walkthrough (idea/prd2160seconds each), completion9 and embedded progress2 (pause/rate, remount) passed, all exit0. Source-import-only input-restart remains a local check, not a claimed live check.
+- Added a QA-only download assertion and ran live course-retry/course-fast: both passed. Actual JSON files preserve complete/partial events, fromLesson=true and full credit180; this verifies the integrated download path, not only the event-cleaner unit.
+- Remaining pre-physical scope is modal decoration/spacing/copy alignment plus its verification/deployment, estimated45–90minutes. Physical guitar/phone testing stays last. No recognition accuracy claim.
