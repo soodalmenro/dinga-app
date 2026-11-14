@@ -281,6 +281,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const nativePause = useRef(null);
   const suspended = paused || exit || stuck || background.paused || inputLost;
   const speed = s.panel.speed;
+  const timeSegments = useRef({ rate: speed, active: 0, scaled: 0 });
   useBeforeUnload(!done, () => {
     if (pausedAt.current !== null || nativePause.current !== null) return undefined;
     const at = Date.now(); nativePause.current = at;
@@ -289,7 +290,11 @@ export default function Lesson({ s, update, target, go, paused = false }) {
       nativePause.current = null;
     };
   });
-  const elapsed = () => Math.floor(((Math.min(pausedAt.current ?? Date.now(), nativePause.current ?? Infinity) - start.current - pausedTime.current) / 1000) * speed);
+  const activeMillis = () => Math.max(0, Math.min(pausedAt.current ?? Date.now(), nativePause.current ?? Infinity) - start.current - pausedTime.current);
+  const elapsed = () => {
+    const segment = timeSegments.current;
+    return Math.floor((segment.scaled + (activeMillis() - segment.active) * segment.rate) / 1000);
+  };
   useEffect(() => {
     if (suspended) pausedAt.current = background.pausedAt.current ?? Date.now();
     else if (pausedAt.current != null) {
@@ -297,6 +302,14 @@ export default function Lesson({ s, update, target, go, paused = false }) {
       pausedAt.current = null;
     }
   }, [suspended]);
+  useEffect(() => {
+    const active = activeMillis();
+    const segment = timeSegments.current;
+    // Earlier active time keeps its original evaluation rate, including fractions.
+    segment.scaled += (active - segment.active) * segment.rate;
+    segment.active = active;
+    segment.rate = speed;
+  }, [speed]);
   const step = steps[idx];
   const chord = step.chord || (lesson ? lesson.chord : null);
   const back = target.back || 'learn';
