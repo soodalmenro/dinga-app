@@ -18,7 +18,7 @@
 ## Tasks
 - [x] RED: no first frame, rejected playback, lost readiness during countdown and canvas failure produce no verdict; valid/retry/late response controls.
 - [x] GREEN: minimal preview/capture readiness handling and cleanup; focused browser tests.
-- [ ] Existing camera loss, preparation, quality, pause and full regression; both builds; final review, docs, rollout/live checks.
+- [x] Existing camera loss, quality, pause and full regression; both builds; final review, docs, rollout/live checks.
 
 ## Ledger
 - Root cause: cameraReady is set when getUserMedia resolves; playback errors are ignored; capture falls back to invented dimensions and proceeds after draw/encoding failure.
@@ -29,3 +29,4 @@
 - Both builds passed; JS `index-CkggqHIh.js`, CSS `index-BHK6GL20.css`. Existing camera loss/retry and interrupted model-loading cases passed. Full/quality/panel regressions pending; no source changes after review/build.
 - Quality retake assertion observed the video's first frame before the UI readiness poll committed. Updated its bounded wait to require both a live decoded preview and enabled capture button; retained the explicit assertion. Product source unchanged; rerun quality/panel checks.
 - Final local regression: full 140 pass / 0 fail, quality 10 and panel pause/rate 9 passed; camera track-loss 2 and new preview 10 also passed. `git diff --check` clean. Both builds and final read-only review completed.
+- Rollout: source `2c56e7f` fast-forwarded/pushed to main. Vercel `dinga-cg9mdesvr-hci24.vercel.app` Ready Production. Live `https://dinga-app.vercel.app/` matched reviewed JS/CSS and passed all six smoke workflows and all ten camera-preview boundary scenarios. Fake-device verification only; real phone/guitar testing remains last.
