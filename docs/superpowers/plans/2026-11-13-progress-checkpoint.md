@@ -19,7 +19,7 @@
 ## Tasks
 - [x] RED→GREEN: normal lesson checkpoint survives reload at exact step; completed progress clears and remains completed; review/custom do not overwrite course resume; course-song entry preserves correct checkpoint.
 - [x] RED→GREEN: native unload guard for unfinished practice, dismiss keeps current attempt, explicit exit/complete removes guard. Hook listener lifecycle and browser fallback.
-- [ ] Relevant storage/course/quality regressions, both builds and full QA; final read-only review; document scope and browser limits; authorized main→Vercel and deployed verification.
+- [x] Relevant storage/course/quality regressions, both builds and full QA; final read-only review; document scope and browser limits; authorized main→Vercel and deployed verification.
 
 ## Ledger
 - Ruling: existing checkout on feature branch and existing rollout. Checkpoint does not award time or persist partial audio judgments. The native prompt is a secondary safeguard, not a guarantee against OS termination.
@@ -30,3 +30,4 @@
 - 11/14 execution: initial runs spanned an idle/environment change and failed at navigation/element stability. Sandbox/default shell stopped responding; explicit host Windows PowerShell responds. No product changes made to explain these failures; fresh builds preserve index-_P2xow8U.js / index-BHK6GL20.css. Fresh10 cases, storage regression and local built-artifact smoke pass; full/focused checks still pending.
 - 11/14 fresh full QA140/0, quality10, storage recovery and local built-artifact smoke pass. Waiting only for final participant handoff/practice exceptions in the running focused chain before rollout.
 - Final pre-rollout verification: fresh focused chain exit0, including participant handoff and practice exceptions (microphone cancellation,8bar pause and report round trip). All runtime checks and both builds pass on current source. No product changes after builds/review.
+- 11/14 rollout verified: app commit6cb3d9f, Ready deployment dinga-99yl0kynp-hci24.vercel.app. Production dinga-app.vercel.app smoke exit0 validates index-_P2xow8U.js / index-BHK6GL20.css, report/JSON, microphone recovery, reduced motion, panel/rate handling, checkpoint/native reload prompt/restore/single completion. No physical testing requested.
