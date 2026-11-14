@@ -99,7 +99,10 @@ function Attend({ s, update, go, paused = false }) {
   const [phase, setPhase] = useState('ask'); // ask | listen | fail | denied | done
   const [acc, setAcc] = useState(0); // 소리가 난 시간(초)
   const [round, setRound] = useState(0);
+  const finished = useRef(false);
   const finish = useCallback((method) => {
+    if (finished.current) return;
+    finished.current = true;
     skipMic();
     update((d) => { const t = today(d); if (!attendedOn(d, t)) d.attendances.push({ date: t, method }); });
     logEvent('attend', { method });

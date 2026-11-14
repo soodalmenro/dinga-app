@@ -137,6 +137,7 @@ node qa/stored-result-browser.cjs
 node qa/camera-preview.cjs
 node qa/result-comparison.cjs
 node qa/result-comparison-browser.cjs
+node qa/song-completion.cjs
 node qa/resume-variant.cjs
 node qa/setting-integrity.cjs
 ```
@@ -160,3 +161,5 @@ Edge로 점검할 때는 환경 변수 `QA_BROWSER_CHANNEL`을 `msedge`로 지�
 기기의 동작 줄이기 설정 반영과 확대 팝업 줄바꿈은 [접근성 모션 보강](docs/ACCESSIBILITY_MOTION.md)을 참고한다.
 
 레슨 단계의 자동 위치 저장, 완료 중복 방지와 저장 전 브라우저 이탈 보호는 [진행 복구](docs/PROGRESS_RECOVERY.md)에 정리했다.
+
+현재 범위의 남은 마무리 순서와 시간 추정은 [남은 작업](docs/REMAINING_WORK.md)을 참고한다. 실제 기타·휴대폰 검증은 마지막 단계다.

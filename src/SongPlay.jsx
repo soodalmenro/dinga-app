@@ -74,6 +74,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   const el = useRef(0); const hits = useRef([]); const out = useRef([]); const spectrum = useMemo(() => createBarSpectrum(), []); const metroRef = useRef(false); metroRef.current = metro;
   const back = (params && params.back) || 'learn';
   const startLogged = useRef(false);
+  const finished = useRef(false);
   const beatMs = 60000 / ((SP.bpm * tempo) / 100) / s.panel.speed;
   const previousBeatMs = useRef(beatMs);
   useEffect(() => {
@@ -111,6 +112,8 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   }, [phase, micOn, suspended, s.panel.judge]);
 
   const finish = (list) => {
+    if (finished.current) return;
+    finished.current = true;
     const { played, scored, score, beatAcc, chordAcc, secs, trans, coverage } = summarizeSong(list);
     update((d) => {
       const t = today(d); const first = !(d.challenge && d.challenge.done); const complete = played === BARS.length;
