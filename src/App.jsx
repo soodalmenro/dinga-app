@@ -495,6 +495,13 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       {notice && <div className="sub" role="status">{notice}</div>}
       {logText !== null && <textarea className="logbox" aria-label="내보낼 행동 기록" readOnly value={logText} onFocus={(e) => e.target.select()} />}
       <div className="panel-row"><span>마지막 출석</span><select defaultValue="" onChange={(e) => { const v = e.target.value; if (v === 'streak') fill(0, 3); else if (v !== '') fill(Number(v)); }}><option value="">고르기</option><option value="streak">오늘까지 3일 연속</option><option value="1">1일 전</option><option value="2">2일 전</option><option value="4">4일 전</option><option value="7">7일 전</option></select></div>
+      <div className="panel-row"><span>파트 3 카메라 테스트</span><button onClick={() => {
+        mic.stop();
+        update((d) => { d.panel.variant = 'idea'; d.panel.judge = 'allok'; d.panel.alert = 'auto'; d.panel.speed = 1; });
+        close();
+        go('lesson', { lesson: 'song', part: 2, step: 0, key: Date.now() });
+      }}>파트 3 카메라 테스트 열기</button></div>
+      <div className="sub" style={{ fontSize: 11 }}>아이디어 반영 · 모두 성공 · 정해진 시점 · ×1로 열어요. 완주하면 실제 테스트 기록이 남아요.</div>
       <div className="panel-row"><span>레슨 1~3 완료 처리</span><button onClick={() => update((d) => { ['em', 'g', 'c'].forEach((k) => { d.done[k] = [true, true, true]; }); })}>적용</button></div>
       <div className="panel-row"><span>코스 1 전부 완료 처리 (곡 연습 열기)</span><button onClick={() => update((d) => { ['em', 'g', 'c', 'song'].forEach((k) => { d.done[k] = [true, true, true]; }); d.resume = null; })}>적용</button></div>
       <div className="panel-row"><span>단계 건너뛰기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-skip')); close(); }}>다음</button></div>
