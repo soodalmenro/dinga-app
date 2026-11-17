@@ -39,6 +39,8 @@ node scripts/prepare-source.mjs --verify
 
 Deploy the resulting `dist` directory. The script copies all license/source artifacts into `dist/licenses` after packaging. Run the same sequence again after any source or build changes. Do not rebuild between packaging and deployment without regenerating and verifying the source package. A single-file build is not a substitute for serving the complete `/licenses/` directory.
 
+ZIP reading/writing uses pinned build-only fflate0.8.3 (MIT) in Node. No Windows bsdtar/Linux GNU tar/zip program is required. `node qa/source-package-portable.cjs` verifies packaging with native process-based archivers unavailable. This avoids the first Vercel failure where GNU tar could not read the upstream ZIP; the browser bundle is unchanged.
+
 The script only reads this hotfix checkout. It allowlists root build files, `src`, public deployment inputs and `scripts`; includes only this document from `docs`; and excludes Git metadata, environment files, QA/evaluation material, dependency installations, credential names, private-key files and generated archive recursion. It rejects symlinks. It does not read the original working repository or publish remotely. Do not place secrets in public application code: all `src` and `public` files are distribution inputs.
 
 Rebuilding Dinga uses Node 20.19+ or 22.12+, `npm ci`, then `npm run build`. To rebuild upstream Chordino independently, extract its ZIP and follow its included `BUILD.md`: use Emscripten 6.0.3, install the locked npm dependencies and run `npm run build`. Generated upstream binaries are installed at the exact published npm version for this app build.

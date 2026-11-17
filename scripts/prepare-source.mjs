@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { zipSync, unzipSync, strToU8 } from 'fflate';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -47,11 +46,6 @@ function buildFiles(dir) {
     return item.isDirectory() ? buildFiles(path) : [posix(relative(out, path))];
   });
 }
-function exec(command, commandArgs, cwd = root) {
-  const result = spawnSync(command, commandArgs, { encoding: 'utf8', windowsHide: true, cwd });
-  if (result.error || result.status !== 0) throw new Error(command + ': ' + (result.error?.message || result.stderr));
-  return result.stdout;
-}
 if (!existsSync(join(out, 'index.html'))) throw new Error('Build first: npm run build');
 if (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).license !== 'GPL-3.0-or-later') throw new Error('Declare the distributed app code GPL-3.0-or-later in package.json before packaging');
 if (sha(readFileSync(join(licenseDir, upstreamName))) !== upstreamSha) throw new Error('Pinned upstream source SHA-256 mismatch');
@@ -60,9 +54,9 @@ const locked = lock.packages?.['node_modules/chordino.js'];
 if (locked?.version !== '0.6.0' || locked?.integrity !== 'sha512-TYzoQoONeIsdKuv550V/MisRm4/5Od1qS5pGDRFd4eOmtiZDH2iJyRpN9cP05tJYf/g9Nu1bFr9smE2NKtnapA==') throw new Error('Lockfile must pin the verified chordino.js npm release');
 const pkg = JSON.parse(readFileSync(join(root, 'node_modules/chordino.js/package.json'), 'utf8'));
 if (pkg.version !== '0.6.0') throw new Error('Installed chordino.js must be exactly 0.6.0');
-const upstreamEntries = exec('tar', ['-tf', join(licenseDir, upstreamName)]);
+const upstreamEntries = Object.keys(unzipSync(readFileSync(join(licenseDir, upstreamName))));
 for (const required of ['src/build.sh', 'src/chordextract.c', 'src/js/chord-live-worker.ts', 'src/nnls-chroma/COPYING', 'src/kissfft/LICENSES/BSD-3-Clause', 'src/vamp-sdk-COPYING', 'BUILD.md', 'package-lock.json']) {
-  if (!upstreamEntries.includes('/' + required + '\n') && !upstreamEntries.includes('/' + required + '\r\n')) throw new Error('Incomplete upstream source: ' + required);
+  if (!upstreamEntries.some(name=>name.endsWith('/'+required))) throw new Error('Incomplete upstream source: ' + required);
 }
 const files = inputs();
 const sourceHashes = hashes(files);
@@ -78,19 +72,9 @@ if (verify) {
   console.log('Verified current app sources, upstream SHA-256, source archive, and built files.');
   process.exit(0);
 }
-const stage = mkdtempSync(join(tmpdir(), 'dinga-source-'));
-try {
-  for (const name of files) {
-    const target = join(stage, name);
-    mkdirSync(dirname(target), { recursive: true });
-    cpSync(join(root, name), target);
-  }
-  writeFileSync(join(stage, 'SOURCE_BUILD.md'), '# Dinga corresponding source\n\nApp: npm ci && npm run build (Node 20.19+ or 22.12+).\nThe source app modules, asset inputs, package-lock and build configuration are included.\nThe app integrates unmodified chordino.js 0.6.0; npm ci retrieves the pinned published binaries.\nFor the preferred upstream C/TypeScript sources and build instructions, extract public/licenses/' + upstreamName + '.\nUpstream BUILD.md and src/build.sh describe rebuilding its binaries with Emscripten 6.0.3, npm ci, npm run build.\nExisting artwork/model files and third-party components retain their respective rights and notices; no blanket artwork relicensing is asserted.\nDo not infer real-instrument recognition accuracy from the software license or this source archive.\n');
-  // Native bsdtar on Windows supports ZIP through -a. Unix uses the standard zip utility.
-  const zipPath = join(stage, 'source.zip');
-  if (process.platform === 'win32') exec('tar', ['-a', '-cf', zipPath, '-C', stage, ...readdirSync(stage)]);
-  else exec('zip', ['-q', '-r', zipPath, ...readdirSync(stage)], stage);
-  cpSync(zipPath, sourceArchive);
+const sourceFiles=Object.fromEntries(files.map(name=>[name,new Uint8Array(readFileSync(join(root,name)))]));
+sourceFiles['SOURCE_BUILD.md']=strToU8('# Dinga corresponding source\n\nApp: npm ci && npm run build (Node 20.19+ or 22.12+).\nThe source app modules, asset inputs, package-lock and build configuration are included.\nThe app integrates unmodified chordino.js 0.6.0; npm ci retrieves the pinned published binaries.\nFor the preferred upstream C/TypeScript sources and build instructions, extract public/licenses/' + upstreamName + '.\nUpstream BUILD.md and src/build.sh describe rebuilding its binaries with Emscripten 6.0.3, npm ci, npm run build.\nExisting artwork/model files and third-party components retain their respective rights and notices; no blanket artwork relicensing is asserted.\nDo not infer real-instrument recognition accuracy from the software license or this source archive.\n');
+writeFileSync(sourceArchive,zipSync(sourceFiles,{level:6}));
   const manifest = {
     format: 1, generatedAt: new Date().toISOString(),
     sourceUrl: '/licenses/' + archiveName,
@@ -102,6 +86,3 @@ try {
   mkdirSync(join(out, 'licenses'), { recursive: true });
   for (const name of readdirSync(licenseDir)) cpSync(join(licenseDir, name), join(out, 'licenses', name));
   console.log('Prepared /licenses/' + archiveName + ' (' + files.length + ' source inputs); run this script with --verify before deploying.');
-} finally {
-  if (realpathSync(stage).startsWith(realpathSync(tmpdir()))) rmSync(stage, { recursive: true, force: true });
-}
