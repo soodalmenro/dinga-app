@@ -11,27 +11,28 @@ import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { observeMediaStream, mediaStreamIsLive } from './mediaLifecycle.js';
 import { useBeforeUnload } from './useBeforeUnload.js';
+import { GuitarInputStatus } from './GuitarInputStatus.jsx';
 
 const PART_SECONDS = 180; // 파트 하나 약 3분
 const TRANSITION_SECONDS = 120; // 전환 연습 약 2분
 
 // 소리가 난 횟수를 센다
-function useHits(active, micOn) {
+function useHits(active, micOn, target=null,simulated=false) {
   const [n, setN] = useState(0);
   useEffect(() => {
     if (!active || !micOn || mic.state !== 'on') return undefined;
-    return makeOnsetDetector(() => setN((v) => v + 1));
-  }, [active, micOn]);
+    return makeOnsetDetector(() => setN((v) => v + 1),{target,simulated});
+  }, [active, micOn,target,simulated]);
   return n;
 }
 // 박자 타이머: 4박 카운트(음수) 뒤 0부터 beat가 올라간다
-function useBeat(bpm, speed, running) {
+function useBeat(bpm, speed, running, limit=Infinity) {
   const [beat, setBeat] = useState(-4);
   useEffect(() => {
     if (!running) return undefined;
-    const id = setInterval(() => { if (!document.hidden) setBeat((b) => b + 1); }, 60000 / (bpm * speed));
+    const id = setInterval(() => { if (!document.hidden) setBeat((b) => Math.min(b+1,limit)); }, 60000 / (bpm * speed));
     return () => clearInterval(id);
-  }, [bpm, speed, running]);
+  }, [bpm, speed, running,limit]);
   return [beat, setBeat];
 }
 
@@ -190,14 +191,17 @@ function HitDots({ n, need = 4 }) {
   return <div className="dots">{Array.from({ length: need }, (_, i) => <i key={i} className={i < n ? 'on' : ''}>{i < n ? '✓' : ''}</i>)}</div>;
 }
 
-function Play({ step, chord, next, micOn, running }) {
-  const n = useHits(running, micOn);
+function Play({ step, chord, next, micOn, running,s }) {
+  const simulated=s.panel.judge!=='mic';
+  const n = useHits(running, micOn,step.showChord?chord:null,simulated);
   const ok = micOn === false || n >= 4;
   return (<>
     <div><div className="cap">소리 내기</div><div className="big">{step.showChord ? chord : '튕겨 보기'}</div></div>
     {step.showChord && <div className="chordbox"><Chord name={chord} scale={0.62} /></div>}
     <h2>{step.text}</h2>
     <HitDots n={n} />
+    {micOn&&!simulated&&<GuitarInputStatus target={step.showChord?chord:null}/>}
+    {simulated&&<div className="sub tc">모의 연습이에요. 실제 코드 판정이 아니에요.</div>}
     {micOn === null && <div className="sub tc">마이크를 준비하고 있어요…</div>}
     {micOn === false && <div className="sub tc">마이크 없이 진행 중이에요. 쳐 본 뒤 다음을 눌러요.</div>}
     <div className="grow"><Piki name={n > 0 ? 'yay' : 'listen'} size={150} /></div>
@@ -205,34 +209,44 @@ function Play({ step, chord, next, micOn, running }) {
   </>);
 }
 
-function Beat({ chord, next, micOn, speed, running }) {
+function Beat({ chord, next, micOn, speed, running,s }) {
   const [bpm, setBpm] = useState(50);
   const [fin, setFin] = useState(false);
-  const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin);
   const [hits, setHits] = useState({});
+  const [retry,setRetry]=useState(false);
+  const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin&&!retry,8);
+  const simulated=s.panel.judge!=='mic'||micOn===false;
   const beatRef = useRef(beat); beatRef.current = beat;
   useEffect(() => {
     if (!running || !micOn || mic.state !== 'on') return undefined;
-    return makeOnsetDetector(() => { if (beatRef.current >= 0) setHits((h) => ({ ...h, [beatRef.current]: true })); });
-  }, [running, micOn]);
+    return makeOnsetDetector((_at,_level,originalBeat) => { if (originalBeat>=0&&originalBeat<8) setHits((h) => ({ ...h, [originalBeat]: true })); },{target:chord,simulated,snapshot:()=>beatRef.current});
+  }, [running, micOn,chord,simulated]);
   useEffect(() => {
-    if (beat >= 8 && bpm === 50) { setBpm(60); setBeat(-4); setHits({}); }
-    if (beat >= 8 && bpm === 60) setFin(true);
-  }, [beat]);
-  const bar = Math.floor(Math.max(beat, 0) / 4);
+    if(beat<8||retry||fin||!running)return undefined;
+    const timer=setTimeout(()=>{
+      if(!simulated&&Object.keys(hits).length<8){setRetry(true);return;}
+      if(bpm===50){setBpm(60);setBeat(-4);setHits({});}else setFin(true);
+    },simulated?0:1500);
+    return()=>clearTimeout(timer);
+  }, [beat,bpm,hits,retry,fin,running,simulated]);
+  const bar = Math.min(1,Math.floor(Math.max(beat, 0) / 4));
   return (<>
     <div><div className="cap">박자에 맞춰 쳐요</div><div className="big">{chord}</div></div>
     <div className="row" style={{ justifyContent: 'center' }}><span className={`pill ${bpm === 50 ? 'y' : 'none'}`}>50 BPM</span><b style={{ color: 'var(--gray)' }}>→</b><span className={`pill ${bpm === 60 ? 'y' : 'none'}`}>60 BPM</span></div>
     <div className="dots beat">{[0, 1, 2, 3].map((i) => { const b = bar * 4 + i; const now = !fin && beat >= 0 && beat % 4 === i; return <i key={i} className={hits[b] && beat >= 0 ? 'hit' : now ? 'now' : ''}>{i + 1}</i>; })}</div>
-    <div className="sub tc">{fin ? '잘했어요! 두 템포를 모두 마쳤어요' : beat < 0 ? `준비… ${-beat}` : `${bar + 1} / 2 마디`}</div>
+    <div className="sub tc">{fin ? '두 템포를 모두 마쳤어요' : retry ? `8박 중 ${Object.keys(hits).length}박의 ${chord} 코드를 확인했어요.` : beat < 0 ? `준비… ${-beat}` : `${bar + 1} / 2 마디`}</div>
+    {micOn&&!simulated&&<GuitarInputStatus target={chord}/>}
+    {retry&&<button className="btn line" onClick={()=>{setHits({});setBeat(-4);setRetry(false);}}>현재 템포 다시 연습</button>}
+    {simulated&&<div className="sub tc">소리 코드를 측정하지 않는 자율·모의 연습이에요.</div>}
     <div className="grow"><Piki name="yay" size={170} /></div>
     <NextBar ok={fin} micOn={micOn} next={next} okText="두 템포를 모두 마쳤어요" />
     {!fin && <div className="sub tc" style={{ fontSize: 12 }}>두 템포를 마치면 넘어갈 수 있어요</div>}
   </>);
 }
 
-function Blind({ chord, next, micOn, running }) {
-  const n = useHits(running, micOn);
+function Blind({ chord, next, micOn, running,s }) {
+  const simulated=s.panel.judge!=='mic';
+  const n = useHits(running, micOn,chord,simulated);
   const [hint, setHint] = useState(false);
   useEffect(() => { if (!hint) return undefined; const id = setTimeout(() => setHint(false), 3000); return () => clearTimeout(id); }, [hint]);
   return (<>
@@ -240,6 +254,7 @@ function Blind({ chord, next, micOn, running }) {
     {hint ? <div className="chordbox"><Chord name={chord} scale={0.62} /></div>
       : <div className="hidden-chord"><div className="big" style={{ color: 'var(--o)' }}>?</div><div className="sub">코드 모양은 숨겼어요</div></div>}
     <h2>화면을 보지 않고 {chord} 코드를 잡고 쳐 보세요</h2>
+    {micOn&&!simulated&&<GuitarInputStatus target={chord}/>}
     <HitDots n={n} />
     <div className="grow"><Piki name="listen" size={130} /></div>
     {!(micOn && n >= 4) && <button className="btn line" onClick={() => setHint(true)}>힌트 보기 (3초)</button>}

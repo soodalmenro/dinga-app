@@ -1,5 +1,7 @@
 # 딩가 (Dinga) 프로토타입
 
+11/16 팀 테스트 대응: 실제 소리 판정에 Chordino0.6.0을 연결했다. [첫 수정 범위와 재테스트](docs/CHORDINO_HOTFIX.md), [문제 분석·Figma 대조](docs/ISSUE_ANALYSIS_2026-11-16.md)를 따른다. 카메라/UI 후속 수정은 별도이며 실제 기타·iPhone 인식률은 아직 측정하지 않았다. 단일 HTML은 화면 미리보기용이다. 실제 인식은 public/chordino 파일을 제공하는 HTTPS 앱 또는 localhost 서버에서 확인한다.
+
 기타 연습 습관 앱 평가용 프로토타입. React + Vite. 서버와 로그인 없이 폰 브라우저에만 저장한다.
 
 [개발 전달본](docs/HANDOFF.md)에서 구현 범위, 판정 방식, 평가 설정과 마지막 실기 항목을 확인할 수 있다.

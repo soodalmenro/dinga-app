@@ -1,6 +1,9 @@
 // 저장(localStorage), 날짜, 마이크 소리 감지를 모아 둔 파일
 import content from './content.json';
 import { analyzeChord } from './chordRecognition.js';
+import { ear } from './guitarEar.js';
+import { createGuitarHitGate } from './guitarHitGate.js';
+export { ear } from './guitarEar.js';
 import { createInputProfiles, inputDeviceKey } from './inputCalibration.js';
 import { LOG_LIMIT, currentEvaluationBundle } from './evaluationExport.js';
 import { observeMediaStream, mediaStreamIsLive, createWakeLockController } from './mediaLifecycle.js';
@@ -212,6 +215,7 @@ function setMicState(state) {
   for (const listener of micListeners) { try { listener(state); } catch {} }
 }
 function disposeMicrophone() {
+  ear.detach();
   micGeneration += 1; micRequest = null;
   if (stopInputWatch) stopInputWatch(); if (stopContextWatch) stopContextWatch();
   stopInputWatch = null; stopContextWatch = null;
@@ -270,6 +274,9 @@ export const mic = {
         context.addEventListener('statechange', onContext);
         stopContextWatch = () => context.removeEventListener('statechange', onContext);
         setMicState('on');
+        // Recognition readiness is separate from microphone permission/liveness.
+        // Failure stays unknown; it never silently falls back to RMS success.
+        ear.attach(context,src).catch(()=>{});
         return true;
       } catch (e) {
         if (generation !== micGeneration) return false;
@@ -320,19 +327,22 @@ export function guessChord(ch) {
 }
 
 // 소리가 "시작된 순간"을 알려 주는 감지기. 조용했다가 기준값을 넘으면 onHit 호출
-export function makeOnsetDetector(onHit) {
+export function makeOnsetDetector(onHit, {target=null,snapshot,simulated=false}={}) {
   let armed = true; let raf = 0; let stopped = false;
+  const gate=createGuitarHitGate({onHit,target,snapshot});
+  if(!simulated)gate.reset(); // A resumed/held sound needs a quiet interval before a new hit.
   const loop = () => {
     if (stopped) return;
-    if (document.hidden || mic.state !== 'on') { raf = requestAnimationFrame(loop); return; }
-    const th = threshold();
+    if (document.hidden || mic.state !== 'on') {gate.reset();armed=false; raf = requestAnimationFrame(loop); return; }
+    const th = simulated ? threshold() : Math.min(threshold(),Math.max(.001,Math.min(.008,ear.noiseFloor()*3)));
     const l = mic.level();
-    if (armed && l > th) { armed = false; onHit(performance.now(), l); }
+    if(simulated){if (armed && l > th) { armed = false; onHit(performance.now(), l,snapshot?.()); }}
+    else gate.sample({at:performance.now(),level:l,threshold:th,observation:ear.snapshot()});
     if (!armed && l < th * 0.5) armed = true;
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
-  return () => { stopped = true; cancelAnimationFrame(raf); };
+  return () => { stopped = true;gate.reset(); cancelAnimationFrame(raf); };
 }
 
 // ---------- 평가용 기록 ----------

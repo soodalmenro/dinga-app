@@ -6,6 +6,8 @@ import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { useBeforeUnload } from './useBeforeUnload.js';
+import {GuitarInputStatus} from './GuitarInputStatus.jsx';
+import {guitarBarIndex,finalizedGuitarBars} from './guitarTimeline.js';
 
 const SONG = content.songChart.bars;
 const pairBars = (p) => [p[0], p[0], p[1], p[1], p[0], p[0], p[1], p[1]];
@@ -71,13 +73,13 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
     if (phase !== 'wait' || exit || suspended) return undefined;
     const q = setTimeout(() => setQuiet(true), 30000);
     if (!micOn) return () => clearTimeout(q);
-    const stop = makeOnsetDetector(() => { hits.current = [0]; setActiveJudge(configuredJudge); setPhase('play'); });
+    const stop = makeOnsetDetector((at) => { elapsed.current=performance.now()-at;hits.current = [0]; setActiveJudge(configuredJudge); setPhase('play'); },{target:BARS[0],simulated:judgeMode!=='mic'});
     return () => { stop(); clearTimeout(q); };
   }, [phase, micOn, configuredJudge, exit, suspended]);
   // 연주: 박자를 세고 마디가 끝날 때마다 판정
   useEffect(() => {
     if (phase !== 'play' || exit || suspended) return undefined;
-    const stop = micOn ? makeOnsetDetector(() => hits.current.push(elapsed.current)) : () => {};
+    const stop = micOn ? makeOnsetDetector((_at,_level,originalElapsed) => hits.current.push(originalElapsed),{target:()=>BARS[Math.min(7,guitarBarIndex(elapsed.current,beatMs))],snapshot:()=>elapsed.current,simulated:judgeMode!=='mic'}) : () => {};
     const out = results.current;
     if (!startLogged.current) { startLogged.current = true; logEvent('song_start', { tempo, mic: !!micOn, judge: judgeMode }); }
     let lastTick = performance.now();
@@ -99,9 +101,10 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       elapsed.current += delta;
       const b = Math.floor(elapsed.current / beatMs);
       const curBar = Math.floor(b / 4);
-      while (out.length < Math.min(curBar, 8)) out.push(judge(out.length));
+      const finalized=judgeMode==='mic'?finalizedGuitarBars(elapsed.current,beatMs,8):Math.min(curBar,8);
+      while (out.length < finalized) out.push(judge(out.length));
       setRes([...out]); setBar(Math.min(curBar, 7)); setBeat(b % 4);
-      if (curBar >= 8) {
+      if (out.length >= 8) {
         clearInterval(id); stop();
         if (emb) { logEvent('transition_end', { pair: pair.join('-'), judge: judgeMode, bars: out.join(',') }); sfx.ok(); params.onDone(); return; }
         update((d) => {
@@ -125,6 +128,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
         {phase === 'wait' ? (micOn === null ? '마이크를 준비하고 있어요…' : micOn && quiet ? '소리가 안 들려요. 한 번 튕겨 볼까요?' : micOn ? '기타 소리가 나면 시작해요' : '마이크 없이 진행해요') : `연주 중 · ${bar + 1}번째 마디`}
         {micOn !== null && judgeMode !== 'mic' && <div className="sub">모의 판정으로 진행해요</div>}
       </div>
+      {micOn&&judgeMode==='mic'&&<GuitarInputStatus target={BARS[bar]} retry={input.retryMic}/>}
       <div className="bars">
         {BARS.map((c, i) => {
           const r = res[i]; const now = phase === 'play' && i === bar && !r;

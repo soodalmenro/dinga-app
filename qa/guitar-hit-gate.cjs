@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict');
+(async()=>{const{createGuitarHitGate}=await import('../src/guitarHitGate.js');const hits=[];let slot=0;const gate=createGuitarHitGate({onHit:(...args)=>hits.push(args),target:()=>slot===0?'Em':'G',snapshot:()=>slot});
+const sample=(at,level,chord='',sourceAt=at,stableMs=500)=>gate.sample({at,level,threshold:.008,observation:{usable:true,chord,sourceAt,stableMs}});
+sample(100,.1,'G');sample(600,.1,'G');assert.equal(hits.length,0,'wrong chord cannot count');sample(650,0);sample(800,.1,'Em',50);sample(1000,.1,'Em',500);assert.equal(hits.length,0,'old chord cannot count');sample(1400,.1,'Em',1200);assert.equal(hits.length,1);assert.equal(hits[0][0],800);assert.equal(hits[0][2],0);
+sample(1500,0);sample(1700,.1,'Em',1700,0);sample(2300,.1,'Em',2100);assert.equal(hits.length,2,'same code after quiet is another hit');sample(2400,0);sample(2600,.1,'Em',2600,0);slot=1;sample(3100,.1,'Em',3000);assert.equal(hits.length,3,'late result is assigned to onset slot and target');assert.equal(hits[2][2],0);
+gate.reset();sample(3300,.1,'G',3300);sample(3900,.1,'G',3800);assert.equal(hits.length,3,'held sound cannot rearm after reset');sample(4000,0);sample(4100,.1,'G',4100,0);sample(4700,.1,'G',4600);assert.equal(hits.length,4);
+sample(4800,0);sample(4900,.1,'G',4900,0);gate.reset();sample(5500,.1,'G',5400);assert.equal(hits.length,4,'reset cancels pending');
+let continuous=0;const sustaining=createGuitarHitGate({onHit:()=>continuous++,target:'Em'});sustaining.reset();sustaining.sample({at:0,level:0,threshold:.008,observation:{}});
+for(let attack=0;attack<4;attack++)for(let ms=0;ms<1200;ms+=50){const at=100+attack*1200+ms;sustaining.sample({at,level:.06*Math.exp(-1.5*ms/1000),threshold:.008,observation:{usable:true,chord:'Em',sourceAt:at-100,stableMs:500}});}
+assert.equal(continuous,4,'new attacks over sustaining same chord do not require complete silence');
+let held=0;const holding=createGuitarHitGate({onHit:()=>held++,target:'Em'});for(let at=100;at<5000;at+=50)holding.sample({at,level:.04*Math.exp(-.15*at/1000)*(1+.1*Math.sin(at/100)),threshold:.008,observation:{usable:true,chord:'Em',sourceAt:at-100,stableMs:500}});assert.equal(held,1,'decay and small envelope variations cannot manufacture attacks');
+console.log('PASS target identity, source freshness, same-chord quiet/continuous attacks, original onset/slot, reset and held sound');})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');const{chromium}=require('playwright');
+(async()=>{const{preview}=await import('vite');const server=await preview({preview:{host:'127.0.0.1',port:0}});let browser;
+try{browser=await chromium.launch({channel:process.env.QA_BROWSER_CHANNEL,args:['--autoplay-policy=no-user-gesture-required']});const page=await browser.newPage({viewport:{width:320,height:568}});
+ await page.addInitScript(()=>{navigator.mediaDevices.getUserMedia=async c=>{if(!c.audio)throw new DOMException('Denied','NotAllowedError');const ac=new AudioContext(),dest=ac.createMediaStreamDestination(),source=ac.createConstantSource();source.offset.value=0;source.connect(dest);source.start();await ac.resume();return dest.stream;};});
+ await page.route('**/chordino/dinga-chord-worker.mjs',route=>route.abort());await page.goto(server.resolvedUrls.local[0]);await page.locator('.widget').click();await page.locator('.splash').waitFor({state:'detached'});await page.getByRole('button',{name:'출석하기',exact:true}).click();
+ await page.getByRole('button',{name:'코드 인식 다시 시도',exact:true}).waitFor();await page.waitForTimeout(2200);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')).attendances.length),0);assert.equal(await page.evaluate(()=>window.dingaEar.status()),'failed');
+ assert.ok((await page.locator('body').innerText()).includes('소리 크기만으로 성공 처리하지 않아요'));
+ await page.unroute('**/chordino/dinga-chord-worker.mjs');await page.getByRole('button',{name:'코드 인식 다시 시도',exact:true}).click();await page.waitForFunction(()=>window.dingaEar?.status()==='ready',{},{timeout:18000});assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')).attendances.length),0);
+ assert.ok(await page.locator('.screen').evaluate(el=>el.scrollWidth-el.clientWidth<=1));console.log('PASS failed WASM worker cannot fall back to loudness; explicit retry restores real engine; 320px fits');
+}finally{await browser?.close();await new Promise(resolve=>server.httpServer.close(resolve));}})().catch(e=>{console.error(e);process.exitCode=1;});

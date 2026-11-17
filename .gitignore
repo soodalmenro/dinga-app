@@ -3,3 +3,6 @@ dist/
 dist-single/
 .vercel/
 .env*
+/public/licenses/dinga-corresponding-source.zip
+/public/licenses/source-manifest.json
+qa-output/
