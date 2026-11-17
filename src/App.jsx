@@ -104,6 +104,7 @@ function Attend({ s, update, go, paused = false }) {
   const [phase, setPhase] = useState('ask'); // ask | listen | fail | denied | done
   const [acc, setAcc] = useState(0); // 소리가 난 시간(초)
   const [round, setRound] = useState(0);
+  const retryInput=()=>{setAcc(0);setRound(r=>r+1);setPhase('listen');microphone.retryMic();};
   const finished = useRef(false);
   const finish = useCallback((method) => {
     if (finished.current) return;
@@ -173,11 +174,11 @@ function Attend({ s, update, go, paused = false }) {
       </>)}
       {phase === 'ask' && <><div className="sub">마이크를 준비하고 있어요…</div><button className="btn line" onClick={() => finish('manual')}>마이크 없이 출석하기</button></>}
       {phase === 'fail' && (<>
-        <button className="btn" onClick={() => { setAcc(0); setRound((r) => r + 1); setPhase('listen'); }}>다시 하기</button>
+        <button className="btn" onClick={retryInput}>다시 하기</button>
         <button className="btn line" onClick={() => finish('manual')}>건너뛰기</button>
       </>)}
       {phase === 'denied' && <button className="btn" onClick={() => finish('manual')}>마이크 없이 출석하기</button>}
-      {micOn&&phase==='listen'&&<GuitarInputStatus retry={microphone.retryMic}/>}
+      {micOn&&['listen','fail'].includes(phase)&&<GuitarInputStatus retry={retryInput}/>}
       <MicrophoneRecovery microphone={microphone} onSkip={() => finish('manual')} onExit={() => go('home')} />
     </div>
   );

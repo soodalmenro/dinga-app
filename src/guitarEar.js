@@ -3,10 +3,10 @@ const BASE = `${import.meta.env.BASE_URL}chordino/`;
 const FRESH_MS = 700, MAX_SOURCE_LAG_MS = 1600, READY_TIMEOUT_MS = 15000;
 let generation = 0, resources = null;
 const listeners = new Set();
-const state = { status: 'off', chord: '', since: 0, sourceAt: 0, receivedAt: 0, floor: 0, level: 0 };
+const state = { status: 'off', chord: '', since: 0, sourceAt: 0, receivedAt: 0, floor: 0, level: 0, candidate:'',gate:0,sustained:0,currentSustained:0 };
 const now = () => performance.now();
 function notify() { for (const listener of listeners) { try { listener(ear.chord(), ear.snapshot()); } catch {} } }
-function clear(status = state.status) { Object.assign(state, { status, chord: '', since: 0, sourceAt: 0, receivedAt: 0, floor: 0, level: 0 }); notify(); }
+function clear(status = state.status) { Object.assign(state, { status, chord: '', since: 0, sourceAt: 0, receivedAt: 0, floor: 0, level: 0,candidate:'',gate:0,sustained:0,currentSustained:0 }); notify(); }
 function fresh() { return state.status === 'ready' && resources?.context.state === 'running' && !resources?.doc?.hidden && state.receivedAt > 0 && now() - state.receivedAt <= FRESH_MS && now() - state.sourceAt <= MAX_SOURCE_LAG_MS; }
 // Exact named major/minor triads only. Extensions, inversions and missing thirds abstain.
 export function parseChord(label) { const match = /^([A-G](?:#|b)?)(m?)$/.exec(typeof label === 'string' ? label : ''); return match ? { root: match[1], minor: match[2] === 'm' } : null; }
@@ -18,7 +18,7 @@ export const ear = {
   stableMs: () => fresh() && state.chord ? Math.max(0, state.sourceAt - state.since) : 0,
   hearing(target = null, minStableMs = 350) { return fresh() && !!state.chord && ear.stableMs() >= minStableMs && (target === null || sameChord(state.chord, target)); },
   noiseFloor: () => fresh() ? state.floor : 0,
-  snapshot() { const usable = fresh(); return { status: ear.status(), usable, chord: usable ? state.chord : '', at: usable ? state.sourceAt : 0, sourceAt: usable ? state.sourceAt : 0, since: usable && state.chord ? state.since : 0, time: now(), stableMs: ear.stableMs(), floor: usable ? state.floor : 0, level: usable ? state.level : 0, generation }; },
+  snapshot() { const usable = fresh(); return { status: ear.status(), usable, chord: usable ? state.chord : '', at: usable ? state.sourceAt : 0, sourceAt: usable ? state.sourceAt : 0, since: usable && state.chord ? state.since : 0, time: now(), stableMs: ear.stableMs(), floor: usable ? state.floor : 0, level: usable ? state.level : 0,candidate:usable?state.candidate:'',gate:usable?state.gate:0,sustained:usable?state.sustained:0,currentSustained:usable?state.currentSustained:0, generation }; },
   subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
   async attach(context, src) {
     ear.detach();
@@ -64,11 +64,14 @@ export const ear = {
         const chord = typeof data.chord === 'string' && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|[0-9]|[:/+º#b-]){0,20}$/.test(data.chord) ? data.chord : '';
         if (chord !== state.chord || interrupted) state.since = chord ? sourceAt : 0;
         Object.assign(state, { status: 'ready', chord, sourceAt, receivedAt: received, floor: Number.isFinite(data.floor) ? data.floor : 0, level: Number.isFinite(data.level) ? data.level : 0 });
+        state.candidate=typeof data.candidate==='string'&&/^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|[0-9]|[:/+º#b-]){0,20}$/.test(data.candidate)?data.candidate:'';
+        for(const key of['gate','sustained','currentSustained'])state[key]=Number.isFinite(data[key])&&data[key]>=0?data[key]:0;
         notify();
       };
       await Promise.race([context.audioWorklet.addModule(new URL('chord-processor.mjs', base)), ready.then(ok => { if (!ok) throw Error('attachment_cancelled'); })]);
       if (mine !== generation || resources !== r) return false;
-      r.node = new AudioWorkletNode(context, 'chord-processor', { channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'discrete' });
+      // Downmix microphone channels; discrete mono would discard the right input.
+      r.node = new AudioWorkletNode(context, 'chord-processor', { channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
       r.node.onprocessorerror = () => fail('failed');
       const { port1, port2 } = new MessageChannel(); r.channels = [port1, port2];
       // Stability is enforced on source observations; extra decoding lookback

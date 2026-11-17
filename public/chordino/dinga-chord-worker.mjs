@@ -66,5 +66,5 @@ function receive(current, blocks) {
   const currentSustained = quantile(slices.filter(s => s.startMs >= nowMs - 200).map(s => s.rms), .25);
   const ringing = sustained >= gate && currentSustained >= gate;
   const chord = found && found.chord !== 'N' && ringing ? found.chord : '';
-  postMessage({ type: 'state', chord, chordStartMs: chord ? found.time * 1000 : 0, atMs, nowMs, level, floor, sustained });
+  postMessage({ type: 'state', chord, chordStartMs: chord ? found.time * 1000 : 0, atMs, nowMs, level, floor, sustained,currentSustained,gate,candidate:found?.chord||'' });
 }
