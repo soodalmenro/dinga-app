@@ -22,7 +22,7 @@ const empty = () => ({
   songPractice: { last: null, count: 0, best: 0 }, // 곡 연습(가사·코드 화면) 결과
   ptab: 'review', // 연습 탭에서 마지막에 본 구분: review | transition | song
   // variant: 'idea' = 아이디어 반영(위젯·연주 중 자세 알림·같은 곡 챌린지), 'prd' = PRD 원본(연습 전 자세 촬영·친구 목록)
-  panel: { mood: 'auto', speed: 1, judge: 'mic', posture: 'sim', dayShift: 0, pid: '', variant: 'idea', alert: 'auto' },
+  panel: { mood: 'auto', speed: 1, judge: 'mic', posture: 'sim', dayShift: 0, pid: '', variant: 'idea', alert: 'auto', fresh: false },
 });
 
 const isRecord = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
@@ -102,6 +102,7 @@ export function load() {
     if (!Number.isFinite(state.panel.speed) || state.panel.speed <= 0) state.panel.speed = base.panel.speed;
     if (!Number.isInteger(state.panel.dayShift)) state.panel.dayShift = base.panel.dayShift;
     if (typeof state.panel.pid !== 'string') state.panel.pid = base.panel.pid;
+    state.panel.fresh = state.panel.fresh === true;
     return state;
   } catch (e) {}
   return base;
@@ -115,7 +116,19 @@ export function resetAll() {
   return empty();
 }
 // 참가자 사이 초기화: 기록은 지우고 평가 설정(참가자 번호·화면 구성·자세 알림 방식)은 남긴다
-export const KEEP_ON_RESET = ['pid', 'variant', 'alert', 'judge'];
+export const KEEP_ON_RESET = ['pid', 'variant', 'alert', 'judge', 'fresh'];
+// 평가 패널에서 '새로고침하면 처음부터'를 켜 두면, 페이지를 새로 열 때마다 상태 초기화 버튼과 같은 일을 한다.
+// 평가 설정과 행동 기록(dinga-log)은 남는다. 기본은 꺼짐: 켜지 않으면 기록은 지금처럼 유지된다.
+export function loadAtStartup() {
+  const state = load();
+  // 주소 끝에 ?fresh=1 을 붙여 한 번 열면 이 설정이 켜지고(?fresh=0 은 끔), 그 뒤로는 주소 없이도 유지된다.
+  try { const asked = new URLSearchParams(window.location.search).get('fresh'); if (asked === '1' || asked === '0') { state.panel.fresh = asked === '1'; save(state); } } catch (e) {}
+  if (state.panel.fresh !== true) return state;
+  const next = empty();
+  KEEP_ON_RESET.forEach((key) => { next.panel[key] = state.panel[key]; });
+  save(next); logEvent('reset', { how: 'reload' });
+  return next;
+}
 
 // 날짜: 폰의 현지 날짜 기준. dayShift는 숨은 패널에서 날짜를 앞으로 미는 용도
 export function dateStr(d) {
@@ -147,6 +160,13 @@ export const daysToSunday = (str) => 6 - dayDiff(weekStart(str), str);
 export const challengeDone = (s) => s.challenge?.done === true;
 // 아이디어 반영 구성에서는 4번째 레슨이 '완주하기'(전환 → 박자 → 완주)다
 export const lessonsFor = (s) => (s.panel.variant === 'idea' ? content.lessons.map((l) => (l.id === 'song' ? content.courseSong : l)) : content.lessons);
+// 파트에서 번호를 매겨 밟는 단계 목록(이어하기의 step 번호 기준).
+// PRD 원본은 파트마다 맨 앞에 자세 촬영이 있다. 아이디어 반영은 목록에 넣지 않는다:
+// 자세 촬영(S7)은 레슨 첫 파트의 첫 연주 단계 직전에 한 번 끼워 보여 주며(Lesson.jsx) 번호를 차지하지 않는다.
+// 그래서 이전 버전에서 저장된 이어하기 위치가 그대로 맞는다. 복습·단독 전환(practiceOnly)에서는 찍지 않는다.
+export function partSteps(definition, variant, part, practiceOnly = false) {
+  return variant === 'idea' || practiceOnly ? definition.steps.filter((step) => step.type !== 'posture') : definition.steps;
+}
 export function remapResumeVariant(resume, from, to) {
   if (!resume || typeof resume !== 'object' || Array.isArray(resume)
     || !['idea', 'prd'].includes(from) || !['idea', 'prd'].includes(to)
@@ -154,7 +174,7 @@ export function remapResumeVariant(resume, from, to) {
   const part = (variant) => lessonsFor({ panel: { variant } }).find((lesson) => lesson.id === resume.lesson)?.parts[resume.part];
   const before = part(from); const after = part(to);
   if (!before?.steps?.length || !after?.steps?.length) return null;
-  const visible = (definition, variant) => definition.steps.filter((step) => variant !== 'idea' || step.type !== 'posture');
+  const visible = (definition, variant) => partSteps(definition, variant, resume.part);
   const oldSteps = visible(before, from); const newSteps = visible(after, to);
   if (!oldSteps.length || !newSteps.length) return null;
   // Song variants use different curricula; restart the same part rather than guess.

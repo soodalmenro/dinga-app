@@ -50,7 +50,7 @@ const { chromium } = require('playwright');
       }
       console.log('PASS four setup cycles release tracks, input contexts, observers and inference');
       for(let i=0;i<6;i++) {
-        await button('이어서 연습하기 ›').click(); await page.waitForFunction(()=>document.querySelector('.pip video')?.readyState>=2);
+        await button('이어서 연습하기 ›').click(); await page.waitForFunction(()=>document.querySelector('video.eye')?.readyState>=2);
         await page.waitForFunction(async()=>(await import('/src/lib.js')).mic.state==='on');
         const before = await page.evaluate(()=>window.soak.sends); await page.waitForFunction(n=>window.soak.sends>n,before);
         if(i%2===0) {

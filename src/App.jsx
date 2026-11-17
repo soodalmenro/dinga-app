@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ear } from './guitarEar.js';
 import { GuitarInputStatus } from './GuitarInputStatus.jsx';
-import { content, load, save, resetAll, KEEP_ON_RESET, today, addDays, dayDiff, attendedOn, lastAttendance, streak, mood, moodGauge, homeLine, totalMinutes, weekStart, daysToSunday, challengeDone, lessonsFor, courseDone, mic, threshold, sfx, logEvent, getLog, clearLog, setPid, keepAwake } from './lib.js';
+import { content, loadAtStartup, save, resetAll, KEEP_ON_RESET, today, addDays, dayDiff, attendedOn, lastAttendance, streak, mood, moodGauge, homeLine, totalMinutes, weekStart, daysToSunday, challengeDone, lessonsFor, courseDone, mic, threshold, sfx, logEvent, getLog, clearLog, setPid, keepAwake } from './lib.js';
 import { Piki, TabBar, Modal, Sparkles, Confetti, imgSrc } from './ui.jsx';
 import Lesson from './Lesson.jsx';
 import { Song, Report } from './Song.jsx';
@@ -22,9 +22,25 @@ const TABS = ['home', 'learn', 'practice', 'my'];
 
 // 폰 홈 화면 흉내 (W1 · W2). 웹앱은 진짜 위젯을 만들 수 없어서 앱의 첫 화면으로 보여 준다
 const APPS = ['#F7C6C6', '#BFD9F2', '#CDE8C5', '#F6E3A8', '#D9C9F0', '#F3C9A5', '#BEE3E0'];
+// 평가용 알림(피그마 N1 배너 5단계 · N2 홈 화면 위 · E1): 진행자가 패널에서 예약하면 폰 홈 화면 위에 배너가 내려온다.
+// 웹앱이라 진짜 OS 푸시가 아니라 앱 안에서 흉내 낸 것이다. 누르면 위젯과 같이 앱이 열린다.
+let notifyRequest = null; // { due: 뜰 시각(ms) }
 function Phone({ s, open }) {
   const first = !s.attendances.length;
   const m = mood(s);
+  const [note, setNote] = useState(false);
+  const shownAt = useRef(0);
+  useEffect(() => {
+    let timer;
+    const arm = () => {
+      clearTimeout(timer); setNote(false);
+      if (!notifyRequest) return;
+      const kind = notifyRequest.kind;
+      timer = setTimeout(() => { notifyRequest = null; shownAt.current = Date.now(); setNote(kind); sfx.alert(); logEvent('notify_shown', { mood: m }); }, Math.max(0, notifyRequest.due - Date.now()));
+    };
+    arm(); window.addEventListener('dinga-notify', arm);
+    return () => { clearTimeout(timer); notifyRequest = null; window.removeEventListener('dinga-notify', arm); };
+  }, []);
   const last = lastAttendance(s);
   const diff = last ? Math.max(0, dayDiff(last.date, today(s))) : 0;
   const line = first ? content.widgetLines.first : content.widgetLines[m].replace('{n}', diff);
@@ -32,6 +48,9 @@ function Phone({ s, open }) {
   return (
     <div className="phone">
       <div className="statusbar"><b>9:41</b><b>●●● ▮</b></div>
+      {note && <button className="notice" onClick={() => { logEvent('notify_open', { seconds: Math.round((Date.now() - shownAt.current) / 100) / 10 }); open(note === 'friend' ? 'friend' : 'notification'); }}>
+        <img src={imgSrc('appicon')} alt="" /><span><small>딩가 · 지금</small><b>{note === 'friend' ? '민지가 첫 곡을 끝냈어요' : line}</b><small>{note === 'friend' ? '4명 중 2명이 끝냈어요' : content.notifyLines[first ? 'first' : m].replace('{n}', diff).replace('{streak}', streak(s))}</small></span><Piki name={note === 'friend' ? 'hi' : first ? 'main' : m} size={44} still />
+      </button>}
       <button className="widget" onClick={() => open('widget')} aria-label="딩가 위젯">
         <span className="wimg"><Piki name={first ? 'main' : m} size={m === 'melted' && !first ? 62 : 108} still /></span>
         <span className="wtext"><b>{line}</b><small>{sub}</small><span className="gauge">{[0, 1, 2, 3].map((i) => <i key={i} className={i < moodGauge[m] ? 'on' : ''} />)}</span></span>
@@ -460,9 +479,11 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div><h1 style={{ fontSize: 18 }}>평가 패널</h1><div className="sub" style={{ fontSize: 12 }}>참가자에게는 보여 주지 않아요</div></div>
       <div className="panel-row"><span>참가자 번호</span><input disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.pid} onChange={(e) => set('pid', e.target.value)} placeholder="예: P1" /></div>
       <div className="panel-row"><span>상태 초기화</span><button onClick={() => { logEvent('reset'); mic.stop(); const n = resetAll(); KEEP_ON_RESET.forEach((k) => { n.panel[k] = s.panel[k]; }); setS(n); close(); go(n.panel.variant === 'idea' ? 'phone' : 'home'); }}>지우기</button></div>
+      <div className="panel-row"><span>새로고침하면 처음부터</span><select aria-label="새로고침하면 처음부터" value={s.panel.fresh ? 'on' : 'off'} onChange={(e) => set('fresh', e.target.value === 'on')}><option value="off">끔 (기록 유지)</option><option value="on">켬 (매번 초기화)</option></select></div>
       <div className="panel-row"><span>화면 구성</span><select disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.variant} onChange={(e) => set('variant', e.target.value)}><option value="idea">아이디어 반영</option><option value="prd">PRD 원본</option></select></div>
       {editingLocked ? <div id="evaluation-locked-settings" className="sub" style={{ fontSize: 11 }}>참가자 번호·화면 구성은 연습 화면을 나간 뒤 바꿀 수 있어요.</div> : <><div className="sub" style={{ fontSize: 11 }}>구성을 바꾸면 이어하기를 대응 단계로 옮겨요. 곡 구성이 다르면 같은 파트 처음부터 시작해요.</div><div className="sub" style={{ fontSize: 11 }}>참가자 번호만 바꿔도 기존 진도는 남아요. 새 참가자는 먼저 상태 초기화를 해 주세요.</div></>}
       <div className="panel-row"><span>폰 홈 화면 (위젯)</span><button onClick={() => { close(); go('phone'); }}>보기</button></div>
+      <div className="panel-row"><span>딩가 알림 (폰 홈 화면에 뜸)</span><select aria-label="딩가 알림 예약" value="" onChange={(e) => { const v = e.target.value; if (v === '') return; const friend = v.startsWith('friend-'); const delay = Number(v.replace('friend-', '')); notifyRequest = v === 'cancel' ? null : { kind: friend ? 'friend' : 'mood', due: Date.now() + delay * 1000 }; logEvent(v === 'cancel' ? 'notify_cancel' : 'notify_armed', v === 'cancel' ? {} : { delay }); close(); go('phone'); setTimeout(() => window.dispatchEvent(new Event('dinga-notify')), 0); }}><option value="">고르기</option><option value="0">지금</option><option value="60">1분 뒤</option><option value="180">3분 뒤</option><option value="friend-0">친구 완료 · 지금</option><option value="friend-60">친구 완료 · 1분 뒤</option><option value="cancel">예약 취소</option></select></div>
       <div className="panel-row"><span>자세 알림</span><span><select value={s.panel.alert} onChange={(e) => set('alert', e.target.value)}><option value="auto">정해진 시점</option><option value="real">실제 판정</option><option value="manual">진행자가 띄움</option><option value="off">끔</option></select></span></div>
       <div className="panel-row"><span>자세 알림 한 번 띄우기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-alert')); close(); }}>지금 띄우기</button></div>
       <div className="panel-row"><span>전체 행동 기록 ({getLog().length}건)</span><span><button onClick={showLog}>복사</button> <button onClick={() => { operation.current += 1; clearLog(); setLogText(null); setNotice(null); set('pid', s.panel.pid); }}>비우기</button></span></div>
@@ -502,7 +523,7 @@ function Splash({ leaving }) {
 }
 
 export default function App() {
-  const [s, setS] = useState(load);
+  const [s, setS] = useState(loadAtStartup);
   // 아이디어 반영: 폰 홈 화면(위젯)에서 시작하고, 위젯이나 아이콘을 누르면 스플래시 → 홈
   // PRD 원본: 앱을 열면 바로 스플래시 → 홈 (탭을 닫기 전까지 한 번)
   const startPhone = s.panel.variant === 'idea';
@@ -541,7 +562,7 @@ export default function App() {
     window.addEventListener('pointerdown', h, true); window.addEventListener('pointerdown', tap, true);
     return () => { window.removeEventListener('pointerdown', h, true); window.removeEventListener('pointerdown', tap, true); };
   }, []);
-  const openApp = (from) => { logEvent('widget_open', { from, mood: mood(s) }); setSplash('show'); go('home'); setTimeout(() => setSplash('leave'), 1500); setTimeout(() => setSplash('done'), 1850); };
+  const openApp = (from) => { logEvent('widget_open', { from, mood: mood(s) }); setSplash('show'); go(from === 'friend' ? 'my' : 'home'); setTimeout(() => setSplash('leave'), 1500); setTimeout(() => setSplash('done'), 1850); };
   const { route, params } = nav;
   const p = { s, update, go, paused: panel };
   return (

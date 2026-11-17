@@ -1,9 +1,9 @@
 const assert=require('node:assert/strict');
 (async()=>{const{createServer}=await import('vite');const server=await createServer({server:{middlewareMode:true}});
- try{const{remapResumeVariant,lessonsFor}=await server.ssrLoadModule('/src/lib.js');let checked=0;
+ try{const{remapResumeVariant,lessonsFor,partSteps}=await server.ssrLoadModule('/src/lib.js');let checked=0;
   for(const from of ['idea','prd'])for(const to of ['idea','prd'])for(const lesson of lessonsFor({panel:{variant:from}}))for(let part=0;part<lesson.parts.length;part++){
-   const definition=lesson.parts[part];const old=definition.steps.filter(step=>from!=='idea'||step.type!=='posture');
-   const destination=lessonsFor({panel:{variant:to}}).find(l=>l.id===lesson.id).parts[part];const next=destination.steps.filter(step=>to!=='idea'||step.type!=='posture');
+   const definition=lesson.parts[part];const old=partSteps(definition,from,part);
+   const destination=lessonsFor({panel:{variant:to}}).find(l=>l.id===lesson.id).parts[part];const next=partSteps(destination,to,part);
    for(let step=0;step<old.length;step++){
     const resume=Object.freeze({lesson:lesson.id,part,step});const mapped=remapResumeVariant(resume,from,to);
     assert.equal(mapped.lesson,lesson.id);assert.equal(mapped.part,part);assert.ok(mapped.step>=0&&mapped.step<next.length);

@@ -160,7 +160,7 @@
       },
       {
        "type": "play",
-        "text": "아는 코드를 천천히 네 번 연주해 보세요",
+       "text": "아는 코드를 천천히 네 번 연주해 보세요",
        "showChord": false
       }
      ]
@@ -230,7 +230,7 @@
       },
       {
        "type": "play",
-        "text": "아는 코드를 천천히 네 번 연주해 보세요",
+       "text": "아는 코드를 천천히 네 번 연주해 보세요",
        "showChord": false
       }
      ]
@@ -296,7 +296,7 @@
       },
       {
        "type": "play",
-        "text": "아는 코드를 천천히 네 번 연주해 보세요",
+       "text": "아는 코드를 천천히 네 번 연주해 보세요",
        "showChord": false
       }
      ]
@@ -448,7 +448,7 @@
   "maxPerPart": 3
  },
  "challenge": {
-  "title": "딩가의 첫 노래"
+  "title": "첫 곡"
  },
  "friendSamples": [
   {
@@ -543,7 +543,7 @@
    },
    {
     "title": "완주",
-    "sub": "딩가의 첫 노래를 끝까지 치기",
+    "sub": "첫 곡을 끝까지 치기",
     "steps": [
      {
       "type": "song"
@@ -553,7 +553,7 @@
   ]
  },
  "songPractice": {
-  "title": "딩가의 첫 노래",
+  "title": "첫 곡",
   "bpm": 80,
   "sections": [
    {
@@ -647,5 +647,19 @@
    4,
    7
   ]
+ },
+ "liveFixes": {
+  "wrist": "손목을 곧게 펴요",
+  "shoulder": "어깨 힘을 빼고 내려요",
+  "thumb": "엄지는 넥 뒤에 가볍게",
+  "all": "손목을 곧게 펴요"
+ },
+ "notifyLines": {
+  "first": "기타 한 번 튕겨볼까요?",
+  "happy": "연속 {streak}일째",
+  "sulky": "어제 못 만났어요",
+  "stare": "기타가 기다리고 있어요",
+  "exhausted": "{n}일째 못 만났어요",
+  "melted": "한 번만 튕겨줘요"
  }
 }

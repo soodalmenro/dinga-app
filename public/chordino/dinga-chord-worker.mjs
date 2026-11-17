@@ -1,7 +1,7 @@
 // Dinga modification of chordino.js 0.6.0 live worker, GPL-2.0-or-later.
 // Emits every current observation, including silence, rather than chord changes only.
 import createChordino from './chordino.mjs';
-const BLOCK = 4096, SLICE = 512, WINDOW_MS = 10000;
+const BLOCK = 4096, SLICE = 512, WINDOW_MS = 10000, FLOOR_RISE_PER_BLOCK = 1.0005;
 let session = null, modulePromise = null;
 onmessage = async ({ data }) => {
   if (data?.type === 'start') await start(data);
@@ -16,7 +16,7 @@ function close() {
 async function start({ port, sampleRate, delayMs = 0 }) {
   close();
   if (!port?.postMessage || !Number.isFinite(sampleRate) || sampleRate < 8000 || !Number.isFinite(delayMs) || delayMs < 0) { postMessage({ type: 'error', message: 'invalid_start' }); return; }
-  const current = { port, sampleRate, delayMs, module: null, instance: 0, pointer: 0, slices: [], lastEnd: -Infinity };
+  const current = { port, sampleRate, delayMs, module: null, instance: 0, pointer: 0, slices: [], lastEnd: -Infinity, quiet: null };
   session = current;
   try {
     modulePromise ??= createChordino().catch(error => { modulePromise = null; throw error; });
@@ -60,11 +60,19 @@ function receive(current, blocks) {
   const chords = module.getPartialResult(instance);
   const atMs = Math.max(0, (chords.at(-1)?.time ?? 0) * 1000 - current.delayMs);
   const found = chords.slice(0,-1).findLast(entry => entry.time * 1000 <= atMs);
-  const floor = quantile(slices.map(s => s.rms), .1);
+  // Room-noise floor. The 10 s window alone is not enough: after a few seconds of
+  // continuous strumming it contains only guitar, so its low quantile becomes the
+  // decaying chord itself and 3x that "floor" muted every quiet-but-real chord.
+  // Keep the quietest level heard so far and let it rise only slowly (about x2 per
+  // two minutes) so sustained playing is never mistaken for background noise.
+  const windowFloor = quantile(slices.map(s => s.rms), .1);
+  current.quiet = current.quiet === null ? windowFloor : Math.min(windowFloor, Math.max(.0005 / 3, current.quiet) * FLOOR_RISE_PER_BLOCK ** blocks.length);
+  const floor = current.quiet;
   const gate = Math.min(.008, Math.max(.0005, floor * 3));
   const sustained = quantile(slices.filter(s => Math.abs(s.startMs - atMs) <= 200).map(s => s.rms), .25);
   const currentSustained = quantile(slices.filter(s => s.startMs >= nowMs - 200).map(s => s.rms), .25);
   const ringing = sustained >= gate && currentSustained >= gate;
   const chord = found && found.chord !== 'N' && ringing ? found.chord : '';
-  postMessage({ type: 'state', chord, chordStartMs: chord ? found.time * 1000 : 0, atMs, nowMs, level, floor, sustained,currentSustained,gate,candidate:found?.chord||'' });
+  postMessage({ type: 'state', chord, chordStartMs: chord ? found.time * 1000 : 0, atMs, nowMs, level, floor, sustained, currentSustained, gate, candidate: found?.chord || '' });
 }
+

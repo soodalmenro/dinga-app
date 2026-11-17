@@ -51,10 +51,10 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
     await page.evaluate(()=>window.releaseRecoveryMic());await page.waitForTimeout(150);
     assert.equal(await page.evaluate(async()=>(await import('/src/lib.js')).mic.state),'idle');
     assert.ok(await page.evaluate(()=>window.mediaTests.audio.at(-1).getTracks().every(t=>t.readyState==='ended')));
-    await page.waitForFunction(()=>document.querySelector('.pip video')?.readyState>=2);
+    await page.waitForFunction(()=>document.querySelector('video.eye')?.readyState>=2);
     const oldCamera=await page.evaluate(()=>{const st=window.mediaTests.video.at(-1);window.oldRecoveryCamera=st;const t=st.getVideoTracks()[0];t.stop();t.dispatchEvent(new Event('ended'));return true;});
     assert.ok(oldCamera);await button(page,'카메라 다시 켜기').waitFor();await button(page,'카메라 다시 켜기').click();
-    await page.waitForFunction(()=>document.querySelector('.pip video')?.readyState>=2);
+    await page.waitForFunction(()=>document.querySelector('video.eye')?.readyState>=2);
     await page.evaluate(()=>window.oldRecoveryCamera.dispatchEvent(new Event('inactive')));
     assert.equal(await button(page,'카메라 다시 켜기').count(),0);
     console.log('PASS lesson track/context loss, explicit resume, late retry cancellation and camera reconnection');

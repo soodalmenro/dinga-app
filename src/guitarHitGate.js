@@ -8,7 +8,9 @@ export function createGuitarHitGate({onHit,target=null,snapshot}={}) {
       last=at;
       // A guitar usually rings through the next strum. Detect a new attack
       // above its decaying envelope as well as an attack after absolute quiet.
-      const attack=at-lastAttack>=350&&Number.isFinite(valley)&&level>=valley*2.2&&level-valley>=Math.max(.004,threshold*.5);
+      // The rise is judged relative to the live threshold: a fixed .004 minimum
+      // ignored every re-strum from a quiet phone microphone.
+      const attack=at-lastAttack>=350&&Number.isFinite(valley)&&level>=valley*2.2&&level-valley>=threshold*.5;
       if(level>threshold&&(armed||attack)){armed=false;lastAttack=at;valley=level;pending={at,level,slot:snapshot?.(),target:typeof target==='function'?target():target};}
       if(at-lastAttack<250)valley=level;else valley=Math.min(valley,level);
       if(level<threshold*.5)armed=true;

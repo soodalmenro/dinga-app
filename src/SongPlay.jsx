@@ -1,6 +1,7 @@
 // 곡 연습(가사 위에 코드가 흐르는 화면)과 곡 연습 리포트
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, sfx, logEvent } from './lib.js';
+import { SongPosture } from './SongPosture.jsx';
 import { ear } from './guitarEar.js';
 import { createChordBarEvidence } from './chordBarEvidence.js';
 import { GuitarInputStatus } from './GuitarInputStatus.jsx';
@@ -190,6 +191,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   let n = -1;
   return (
     <div className="screen sp">
+      {s.panel.variant === 'idea' && s.panel.alert === 'auto' && <SongPosture active={phase === 'play' && !suspended} />}
       <div className="row"><Piki name="main" size={38} still /><h1 style={{ fontSize: 17, flex: 1 }}>{SP.title}{params && params.fromLesson ? ' · 완주' : ''}</h1><button className="iconbtn" aria-label="곡 연습 나가기" onClick={() => setExit(true)}>✕</button></div>
       {micOn&&judgeMode==='mic'&&<GuitarInputStatus target={BARS[bar].chord} retry={microphone.retryMic}/>}
       <div className="sp-body" ref={scoreView}>

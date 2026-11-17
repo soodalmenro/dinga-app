@@ -1,9 +1,12 @@
 // 레슨 실행 화면: 설명 → 코드 → 연주 → 박자 → 안 보고 치기 → 전환
-// 자세: 화면 구성이 '아이디어 반영'이면 연주 단계 동안 작은 카메라로 보고 알림(P1),
-//       'PRD 원본'이면 파트 첫 단계에서 한 번 찍는다(14 · 15)
+// 자세(피그마 Flow 11/16): '아이디어 반영'은 레슨 첫 파트에서만 한 번 촬영(S7)하고 결과는 흉내 낸 값이다.
+//       연주 중에는 카메라 창을 계속 띄우지 않는다. 연주 단계 5초 뒤 알림이 뜰 때만
+//       문구 + 진동 1번 + 카메라 창과 교정 그림을 3초 보여 주고 닫는다(P1, 파트당 1번).
+//       'PRD 원본'은 파트마다 첫 단계에서 찍는다(14 · 15)
 import { Song } from './Song.jsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor } from './lib.js';
+import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor, partSteps } from './lib.js';
+import { PostureCoach } from './SongPosture.jsx';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture } from './pose.js';
 import { useMicrophone } from './useMicrophone.js';
@@ -39,6 +42,44 @@ function useBeat(bpm, speed, running, limit=Infinity) {
 const usableCaptureFrame = (video) => video?.readyState >= 2
   && Number.isFinite(video.videoWidth) && video.videoWidth > 0
   && Number.isFinite(video.videoHeight) && video.videoHeight > 0;
+
+// 자세 가이드 선(피그마 14 · S7 · 15): 카메라 화면 위에 상체·기타 윤곽을 흐린 점선으로 깔고
+// 어깨선과 코드 잡는 팔 선을 그린다. 틀에 맞춰 앉게 돕는 그림이며 실제 관절을 찾아 그린 선은 아니다.
+// mode: 'pre' 촬영 전(라벨 있음) | 'count' 3초 카운트(더 흐리게) | 'result' 결과(부위별 초록/주황)
+function PostureGuide({ mode, res }) {
+  const result = mode === 'result';
+  const tone = (key) => (!result || !res || !res[key] ? '#fff' : res[key] === 'ok' ? '#3FBF6F' : '#FF9A3D');
+  const word = (key) => (res && res[key] === 'warn' ? '주의' : '괜찮음');
+  const tag = (x, y, text, key) => {
+    const w = text.length * 11.5 + 18; const color = result ? tone(key) : '#302F46';
+    return <g key={text}><rect x={x - w / 2} y={y - 11} width={w} height={22} rx={11} fill={result ? (res && res[key] === 'warn' ? '#FFF1D6' : '#E3F6EA') : '#fff'} /><text x={x} y={y + 4} textAnchor="middle" fontSize="11" fontWeight="800" fill={result && res && res[key] === 'warn' ? '#C2620F' : result ? '#1E8A4A' : color}>{text}</text></g>;
+  };
+  const faint = { stroke: '#fff', strokeOpacity: mode === 'count' ? 0.3 : 0.45, strokeWidth: 1.6, strokeDasharray: '6 5', fill: 'none' };
+  return (
+    <svg className="poseguide" viewBox={result ? '0 20 335 300' : '0 0 335 449'} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      {!result && <rect x="30" y="30" width="275" height="412" rx="120" fill="none" stroke="#fff" strokeOpacity="0.9" strokeWidth="2" strokeDasharray="8 6" />}
+      <circle cx="178" cy="87" r="32" {...faint} />
+      <path d="M112 177C112 158 132 150 178 150C224 150 244 158 244 177V420M112 177L96 420" {...faint} />
+      <ellipse cx="170" cy="292" rx="40" ry="34" {...faint} /><ellipse cx="210" cy="322" rx="62" ry="50" {...faint} />
+      <path d="M150 276L34 222M150 292L40 244" {...faint} />
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" opacity={mode === 'count' ? 0.55 : 1}>
+        <path d="M112 177H244" stroke={tone('shoulder')} />
+        <path d="M112 177L90 296L68 253" stroke={tone('wrist')} />
+        <path d="M68 253L62 229" stroke={tone('thumb')} />
+        <circle cx="112" cy="177" r="6" fill={tone('shoulder')} stroke="none" /><circle cx="244" cy="177" r="6" fill={tone('shoulder')} stroke="none" />
+        <circle cx="90" cy="296" r="5" fill={tone('wrist')} stroke="none" /><circle cx="68" cy="253" r="7" fill={tone('wrist')} stroke="none" />
+        <circle cx="62" cy="229" r="5.5" fill={tone('thumb')} stroke="none" />
+      </g>
+      {mode === 'pre' && <>
+        <path d="M30 313H150" stroke="#FFC53D" strokeWidth="2" strokeDasharray="5 4" />
+        {tag(178, 160, '어깨: 양쪽 높이를 같게')}{tag(50, 208, '엄지')}{tag(140, 248, '손목: 꺾지 않고 곧게')}
+        <g><rect x="34" y="321" width="112" height="22" rx="11" fill="#FFC53D" /><text x="90" y="336" textAnchor="middle" fontSize="11" fontWeight="800" fill="#302F46">왼손은 이 선보다 위</text></g>
+        <text x="167" y="430" textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">선에 맞춰 상체와 기타를 넣어요</text>
+      </>}
+      {result && res && <>{res.shoulder && tag(190, 160, `어깨 ${word('shoulder')}`, 'shoulder')}{res.thumb && tag(62, 205, `엄지 ${word('thumb')}`, 'thumb')}{res.wrist && tag(40, 278, `손목 ${word('wrist')}`, 'wrist')}</>}
+    </svg>
+  );
+}
 
 function Posture({ lesson, s, update, next, speed, running }) {
   const [phase, setPhase] = useState('pre'); // pre | count | result | denied
@@ -127,8 +168,8 @@ function Posture({ lesson, s, update, next, speed, running }) {
     const keys = ['wrist', 'thumb', 'shoulder'].sort((a, b) => (a === focus ? -1 : b === focus ? 1 : 0));
     const warn = keys.find((k) => res[k] === 'warn');
     return (<>
-      <div className="cam" style={{ flex: 'none', height: 220 }}>{shot ? <img src={shot} alt="" /> : <div className="msg">방금 찍은 모습</div>}</div>
-      {s.panel.posture !== 'sim' && <div className="sub">가이드와 비교해서 직접 골라 주세요</div>}
+      <div className="cam" style={{ flex: 'none', height: 220 }}>{shot ? <img src={shot} alt="" /> : <div className="msg">방금 찍은 모습</div>}<PostureGuide mode="result" res={res} /></div>
+      {s.panel.posture !== 'sim' ? <div className="sub">가이드와 비교해서 직접 골라 주세요</div> : <div className="sub">연습용 예시 결과예요. 실제 자세를 본 결과는 아니에요.</div>}
       {keys.map((k) => (
         <div key={k} className={`card row between${k === focus ? ' sel' : ''}`} style={{ padding: '12px 16px' }}>
           <div className="row"><b>{content.postureTips[k].name}</b>{k === focus && <span className="cap">이번 레슨의 중심</span>}</div>
@@ -150,7 +191,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
     <div className="cam">
       <video ref={video} playsInline muted />
       {!cameraReady && <div className="msg">카메라를 준비하고 있어요…</div>}
-      <div className="guide" />
+      <PostureGuide mode={phase === 'count' ? 'count' : 'pre'} />
       {phase === 'count' && <div className="count">{count}</div>}
     </div>
     <div className="card soft"><div className="cap">이번 레슨에서 볼 곳: {tip.name}</div><div className="sub">사진은 저장하지 않아요</div></div>
@@ -160,9 +201,13 @@ function Posture({ lesson, s, update, next, speed, running }) {
   </>);
 }
 
-function Card({ step, next }) {
+const FINGERS = [[1, '검지'], [2, '중지'], [3, '약지'], [4, '새끼']];
+function Card({ step, next, chord }) {
+  // 손가락 번호 범례(피그마 20:4): 이 코드에서 쓰는 손가락만 노랗게
+  const used = chord && /손가락/.test(step.title) ? content.chords[chord].dots.map((d) => d.finger) : null;
   return (<>
-    <div className="stage"><Piki name={step.img || 'hi'} size={200} /></div>
+    <div className="stage"><Piki name={step.img || 'hi'} size={used ? 170 : 200} /></div>
+    {used && <div className="row fingers" aria-label="손가락 번호">{FINGERS.map(([n, name]) => <span key={n} className={`pill ${used.includes(n) ? 'y' : 'w'}`}>{name} {n}</span>)}</div>}
     <div><h1 style={{ fontSize: 22 }}>{step.title}</h1><div className="sub" style={{ marginTop: 6 }}>{step.text}</div></div>
     <button className="btn" onClick={next}>다음</button>
   </>);
@@ -191,7 +236,7 @@ function HitDots({ n, need = 4 }) {
   return <div className="dots">{Array.from({ length: need }, (_, i) => <i key={i} className={i < n ? 'on' : ''}>{i < n ? '✓' : ''}</i>)}</div>;
 }
 
-function Play({ step, chord, next, micOn, running,s }) {
+function Play({ step, chord, next, micOn, running,s,retryEar }) {
   const simulated=s.panel.judge!=='mic';
   const n = useHits(running, micOn,step.showChord?chord:null,simulated);
   const ok = micOn === false || n >= 4;
@@ -200,8 +245,8 @@ function Play({ step, chord, next, micOn, running,s }) {
     {step.showChord && <div className="chordbox"><Chord name={chord} scale={0.62} /></div>}
     <h2>{step.text}</h2>
     <HitDots n={n} />
-    {micOn&&!simulated&&<GuitarInputStatus target={step.showChord?chord:null}/>}
-    {simulated&&<div className="sub tc">모의 연습이에요. 실제 코드 판정이 아니에요.</div>}
+    {micOn&&!simulated&&<GuitarInputStatus target={step.showChord?chord:null} retry={retryEar}/>}
+    {simulated&&<div className="sub tc">연습 모드예요. 어떤 코드를 쳤는지는 확인하지 않아요.</div>}
     {micOn === null && <div className="sub tc">마이크를 준비하고 있어요…</div>}
     {micOn === false && <div className="sub tc">마이크 없이 진행 중이에요. 쳐 본 뒤 다음을 눌러요.</div>}
     <div className="grow"><Piki name={n > 0 ? 'yay' : 'listen'} size={150} /></div>
@@ -209,7 +254,7 @@ function Play({ step, chord, next, micOn, running,s }) {
   </>);
 }
 
-function Beat({ chord, next, micOn, speed, running,s }) {
+function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
   const [bpm, setBpm] = useState(50);
   const [fin, setFin] = useState(false);
   const [hits, setHits] = useState({});
@@ -217,9 +262,15 @@ function Beat({ chord, next, micOn, speed, running,s }) {
   const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin&&!retry,8);
   const simulated=s.panel.judge!=='mic'||micOn===false;
   const beatRef = useRef(beat); beatRef.current = beat;
+  // 사람은 박보다 살짝 먼저 치는 일이 흔하다. 박 사이 마지막 1/4에 친 소리는 다음 박으로 센다
+  // (8마디 화면의 guitarBarIndex와 같은 기준). 이게 없으면 조금만 빨리 쳐도 전부 앞 박으로 밀려 8박을 못 채운다.
+  const beatAt = useRef(performance.now());
+  useEffect(() => { beatAt.current = performance.now(); }, [beat]);
+  const beatSlot = () => beatRef.current + (performance.now() - beatAt.current > (60000 / (bpm * speed)) * 0.75 ? 1 : 0);
+  const slotRef = useRef(beatSlot); slotRef.current = beatSlot;
   useEffect(() => {
     if (!running || !micOn || mic.state !== 'on') return undefined;
-    return makeOnsetDetector((_at,_level,originalBeat) => { if (originalBeat>=0&&originalBeat<8) setHits((h) => ({ ...h, [originalBeat]: true })); },{target:chord,simulated,snapshot:()=>beatRef.current});
+    return makeOnsetDetector((_at,_level,originalBeat) => { if (originalBeat>=0&&originalBeat<8) setHits((h) => ({ ...h, [originalBeat]: true })); },{target:chord,simulated,snapshot:()=>slotRef.current()});
   }, [running, micOn,chord,simulated]);
   useEffect(() => {
     if(beat<8||retry||fin||!running)return undefined;
@@ -234,17 +285,17 @@ function Beat({ chord, next, micOn, speed, running,s }) {
     <div><div className="cap">박자에 맞춰 쳐요</div><div className="big">{chord}</div></div>
     <div className="row" style={{ justifyContent: 'center' }}><span className={`pill ${bpm === 50 ? 'y' : 'none'}`}>50 BPM</span><b style={{ color: 'var(--gray)' }}>→</b><span className={`pill ${bpm === 60 ? 'y' : 'none'}`}>60 BPM</span></div>
     <div className="dots beat">{[0, 1, 2, 3].map((i) => { const b = bar * 4 + i; const now = !fin && beat >= 0 && beat % 4 === i; return <i key={i} className={hits[b] && beat >= 0 ? 'hit' : now ? 'now' : ''}>{i + 1}</i>; })}</div>
-    <div className="sub tc">{fin ? '두 템포를 모두 마쳤어요' : retry ? `8박 중 ${Object.keys(hits).length}박의 ${chord} 코드를 확인했어요.` : beat < 0 ? `준비… ${-beat}` : `${bar + 1} / 2 마디`}</div>
-    {micOn&&!simulated&&<GuitarInputStatus target={chord}/>}
+    <div className="sub tc">{fin ? '두 템포를 모두 마쳤어요' : retry ? `8박 중 ${Object.keys(hits).length}박에서 ${chord} 코드가 들렸어요. 한 번 더 해 볼까요?` : beat < 0 ? `준비… ${-beat}` : `${bar + 1} / 2 마디`}</div>
+    {micOn&&!simulated&&<GuitarInputStatus target={chord} retry={retryEar}/>}
     {retry&&<button className="btn line" onClick={()=>{setHits({});setBeat(-4);setRetry(false);}}>현재 템포 다시 연습</button>}
-    {simulated&&<div className="sub tc">소리 코드를 측정하지 않는 자율·모의 연습이에요.</div>}
+    {simulated&&<div className="sub tc">연습 모드예요. 어떤 코드를 쳤는지는 확인하지 않아요.</div>}
     <div className="grow"><Piki name="yay" size={170} /></div>
     <NextBar ok={fin} micOn={micOn} next={next} okText="두 템포를 모두 마쳤어요" />
     {!fin && <div className="sub tc" style={{ fontSize: 12 }}>두 템포를 마치면 넘어갈 수 있어요</div>}
   </>);
 }
 
-function Blind({ chord, next, micOn, running,s }) {
+function Blind({ chord, next, micOn, running,s,retryEar }) {
   const simulated=s.panel.judge!=='mic';
   const n = useHits(running, micOn,chord,simulated);
   const [hint, setHint] = useState(false);
@@ -254,7 +305,7 @@ function Blind({ chord, next, micOn, running,s }) {
     {hint ? <div className="chordbox"><Chord name={chord} scale={0.62} /></div>
       : <div className="hidden-chord"><div className="big" style={{ color: 'var(--o)' }}>?</div><div className="sub">코드 모양은 숨겼어요</div></div>}
     <h2>화면을 보지 않고 {chord} 코드를 잡고 쳐 보세요</h2>
-    {micOn&&!simulated&&<GuitarInputStatus target={chord}/>}
+    {micOn&&!simulated&&<GuitarInputStatus target={chord} retry={retryEar}/>}
     <HitDots n={n} />
     <div className="grow"><Piki name="listen" size={130} /></div>
     {!(micOn && n >= 4) && <button className="btn line" onClick={() => setHint(true)}>힌트 보기 (3초)</button>}
@@ -284,27 +335,13 @@ export function Transition({ pair, next, speed, setBarProgress, running }) {
 }
 
 const LIVE = ['play', 'beat', 'blind', 'transition']; // 자세를 보는 연주 단계
-
-// 오른쪽 위 작은 카메라. 누르면 접힌다
-function LiveCam({ stream, cam, note, retry }) {
-  const v = useRef(null);
-  const [hide, setHide] = useState(false);
-  useEffect(() => { if (v.current && stream.current) { v.current.srcObject = stream.current; v.current.play().catch(() => {}); } }, [cam, hide]);
-  if (cam === 'denied') return <button className="pip mini" onClick={retry}>카메라 다시 켜기</button>;
-  if (hide) return <button className="pip mini" onClick={() => setHide(false)}>내 모습 보기</button>;
-  return (
-    <button className="pip" onClick={retry || (() => setHide(true))} aria-label={retry ? '자세 판정 다시 시도' : '내 모습 숨기기'}>
-      {cam === 'on' ? <video ref={v} playsInline muted /> : null}
-      <span>{cam === 'on' ? note : '카메라 준비 중'}</span>
-    </button>
-  );
-}
-
+// 자세 알림과 함께 3초만 뜨는 창: 위는 내 모습, 아래는 교정 그림(피그마 P1 209:4)
 export default function Lesson({ s, update, target, go, paused = false }) {
   const lesson = lessonsFor(s).find((l) => l.id === target.lesson);
   const def = target.custom || lesson.parts[target.part];
   const idea = s.panel.variant === 'idea';
-  const steps = useMemo(() => def.steps.filter((st) => !((target.review || idea) && st.type === 'posture')), []);
+  // 아이디어 반영: 자세 촬영(S7)은 레슨 첫 파트에서만 한 번. 복습·단독 전환에서는 찍지 않는다
+  const steps = useMemo(() => partSteps(def, s.panel.variant, target.part, !!(target.review || target.custom)), []);
   const [idx, setIdx] = useState(Math.min(target.step || 0, steps.length - 1));
   const [exit, setExit] = useState(false);
   const [stuck, setStuck] = useState(false);
@@ -362,7 +399,12 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   useEffect(() => { if (steps[idx].type === 'song') go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() }); }, []);
 
   // ---------- 연주 중 자세 알림 (P1) ----------
-  const live = idea && !done && !background.paused && LIVE.includes(step.type);
+  // S7(피그마 Flow 11/16): 레슨 첫 파트에서 한 번, 설명 카드 뒤 · 첫 연주 단계 직전에 자세 촬영을 끼운다
+  // 이어하기로 연주 단계에 바로 돌아온 경우에는 이미 지나온 자리라 다시 끼우지 않는다.
+  const [s7, setS7] = useState(() => idea && !target.review && !target.custom && target.part === 0 && !LIVE.includes(steps[Math.min(target.step || 0, steps.length - 1)].type));
+  const checking = s7 && !done && LIVE.includes(step.type);
+  const checkingRef = useRef(checking); checkingRef.current = checking;
+  const live = idea && !done && !background.paused && !checking && LIVE.includes(step.type);
   const focus = lesson ? lesson.postureFocus : 'all';
   const camStream = useRef(null);
   const eye = useRef(null); // 판정용 영상(화면에는 안 보임)
@@ -462,7 +504,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   }, [cam, mode, live, poseAttempt, suspended]);
   // 정해진 시점: 연주 단계에 들어가고 5초 뒤 한 번 (파트당 1번)
   useEffect(() => {
-    if (!live || suspended || cam !== 'on' || mode !== 'auto' || alerts.current.timed) return undefined;
+    if (!live || suspended || !['on', 'denied'].includes(cam) || mode !== 'auto' || alerts.current.timed) return undefined;
     const id = setTimeout(() => { alerts.current.timed = true; fireRef.current(focus === 'all' ? 'wrist' : focus, 'timed'); }, 5000 / speed);
     return () => clearTimeout(id);
   }, [live, cam, mode, idx, suspended]);
@@ -473,7 +515,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     window.addEventListener('dinga-alert', h);
     return () => { clearTimeout(timer); window.removeEventListener('dinga-alert', h); };
   }, []);
-  const camNote = mode !== 'real' ? '내 모습' : poseState === 'ready' ? poseNote : poseState === 'fail' ? '판정 꺼짐 · 다시 시도' : '준비 중';
+  const camNote = poseState === 'ready' ? poseNote : poseState === 'fail' ? '자세 판정 꺼짐' : '자세 판정 준비 중';
   const retryCamera = () => setCameraAttempt((value) => value + 1);
   const retryPose = cam === 'on' && mode === 'real' && poseState === 'fail' ? () => setPoseAttempt((value) => value + 1) : undefined;
   useEffect(() => { logEvent('step', { lesson: target.lesson || 'transition', part: target.part, step: idx, kind: steps[idx].type }); }, [idx]);
@@ -492,6 +534,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   };
   const next = () => {
     if (finished.current) return;
+    if (checkingRef.current) { setS7(false); return; }
     const n = steps[idx + 1];
     if (!n) return finish();
     if (n.type === 'song') { checkpoint(idx + 1); return go(idea ? 'songplay' : 'song', { fromLesson: true, back: 'learn', key: Date.now() }); }
@@ -535,28 +578,29 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   if (step.type === 'song') return <div className="screen center"><div className="grow sub">곡을 준비하고 있어요…</div></div>;
   const total = step.type === 'transition' ? 8 : steps.length;
   const now = step.type === 'transition' ? tbar : idx + 1;
-  const props = { step, lesson, chord, next, micOn, speed, s, update, running: !suspended };
+  const props = { step, lesson, chord, next, micOn, speed, s, update, running: !suspended, retryEar: microphone.retryMic };
   const al = alertKind && (content.liveAlerts[alertKind] || content.liveAlerts.all);
   return (<>
     {idea && <video ref={eye} className="eye" playsInline muted />}
-    {live && <LiveCam stream={camStream} cam={cam} note={camNote} retry={cam === 'denied' ? retryCamera : retryPose} />}
+    {live && alertKind && cam === 'on' && <PostureCoach stream={camStream} cam={cam} kind={alertKind} />}
     {al && <div className="palert" role="status"><i>!</i><div><b>{al.title}</b><small>{al.text}</small></div></div>}
     <div className="screen" key={idx}>
       <div className="row">
         <button className="iconbtn" onClick={() => setExit(true)} aria-label="나가기">✕</button>
         <Progress n={now} total={total} label={step.type === 'transition' ? '코드 전환 진행' : '파트 진행'} unit={step.type === 'transition' ? '마디' : '단계'} />
-        {step.type !== 'posture' && <button className="textbtn" onClick={() => { logEvent('stuck', { kind: step.type }); setStuck(true); }}>막혔어요</button>}
+        {step.type !== 'posture' && !checking && <button className="textbtn" onClick={() => { logEvent('stuck', { kind: step.type }); setStuck(true); }}>막혔어요</button>}
       </div>
-      {live && cam === 'denied' && <div className="sub" style={{ fontSize: 12 }}>카메라를 쓸 수 없어 자세 알림 없이 연습해요</div>}
+      {live && cam === 'denied' && <div className="sub" style={{ fontSize: 12 }}>카메라를 쓸 수 없어 자세 알림은 문구로만 알려요 <button className="textbtn" onClick={retryCamera}>카메라 다시 켜기</button></div>}
+      {live && cam === 'on' && mode === 'real' && <div className="sub" style={{ fontSize: 12 }} role="status">{camNote}{retryPose && <button className="textbtn" aria-label="자세 판정 다시 시도" onClick={retryPose}>다시 시도</button>}</div>}
       {live && mode === 'real' && poseState === 'ready' && framing && !framing.ready && <div className="sub" style={{ fontSize: 12 }} role="status">{framing.instruction}</div>}
-      {step.type === 'posture' && <Posture {...props} />}
+      {(step.type === 'posture' || checking) && <Posture {...props} />}
       {step.type === 'card' && <Card {...props} />}
       {step.type === 'diagram' && <Diagram {...props} />}
-      {step.type === 'play' && <Play {...props} />}
-      {step.type === 'beat' && <Beat key={idx} {...props} />}
-      {step.type === 'blind' && <Blind {...props} />}
+      {step.type === 'play' && !checking && <Play {...props} />}
+      {step.type === 'beat' && !checking && <Beat key={idx} {...props} />}
+      {step.type === 'blind' && !checking && <Blind {...props} />}
       {micOn === null && !inputLost && <button className="textbtn" onClick={skipMic}>마이크 없이 계속하기</button>}
-      {step.type === 'transition' && idea && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} restartCurrentBar={background.paused} params={{ pair: step.pair, onDone: next, onProgress: setTbar }} />}
+      {step.type === 'transition' && idea && !checking && <Song key={idx} s={s} update={update} go={go} microphone={microphone} paused={suspended} restartCurrentBar={background.paused} params={{ pair: step.pair, onDone: next, onProgress: setTbar }} />}
       {step.type === 'transition' && !idea && <Transition pair={step.pair} next={next} speed={speed} setBarProgress={setTbar} running={!suspended} />}
       {exit && (
         <Modal onClose={() => setExit(false)}>
