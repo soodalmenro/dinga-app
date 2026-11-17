@@ -8,7 +8,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor, partSteps } from './lib.js';
 import { PostureCoach } from './SongPosture.jsx';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
-import { initPose, watchPosture } from './pose.js';
+import { initPose, watchPosture, clearBaseline } from './pose.js';
+import { PoseDebug, readPoseDebugFlag } from './PoseDebug.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
@@ -414,6 +415,16 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const [framing, setFraming] = useState(null);
   const [cameraAttempt, setCameraAttempt] = useState(0);
   const [poseAttempt, setPoseAttempt] = useState(0);
+  // 자세 판정 디버그 화면: 평가 패널에서 켠 경우에만 (기본 꺼짐, 참가자 화면 아님)
+  const [debugOn, setDebugOn] = useState(readPoseDebugFlag);
+  const [poseDebug, setPoseDebug] = useState(null);
+  const debugOnRef = useRef(debugOn); debugOnRef.current = debugOn;
+  const watcher = useRef(null);
+  useEffect(() => {
+    const sync = () => setDebugOn(readPoseDebugFlag());
+    window.addEventListener('dinga-posedebug', sync);
+    return () => window.removeEventListener('dinga-posedebug', sync);
+  }, []);
   const [alertKind, setAlertKind] = useState(null);
   const alerts = useRef({ n: 0, last: 0, timed: false });
   const alertTimer = useRef(null);
@@ -474,7 +485,8 @@ export default function Lesson({ s, update, target, go, paused = false }) {
       let previousStatus;
       stop = watchPosture(eye.current, {
         focus: ['wrist', 'shoulder'].includes(focus) ? focus : 'all',
-        onStatus: (st, measured, guidance) => {
+        onStatus: (st, measured, guidance, debug) => {
+          if (debugOnRef.current && debug) setPoseDebug(debug);
           if (st === 'error') {
             setPoseState('fail');
             logEvent('pose_fail', { where: 'tracking' });
@@ -496,11 +508,12 @@ export default function Lesson({ s, update, target, go, paused = false }) {
         onIssue: (kind, m) => {
           const a = alerts.current;
           if (!liveRef.current || a.n >= th.maxPerPart || (a.last && performance.now() - a.last < th.cooldownMs)) return;
-          fireRef.current(kind, 'real', kind === 'wrist' ? m.wrist : m.tilt);
+          fireRef.current(kind, 'real', kind === 'wrist' ? (Number.isFinite(m.wrist3d) ? m.wrist3d : m.wrist) : m.tilt);
         },
       });
+      watcher.current = stop;
     });
-    return () => { dead = true; if (stop) stop(); };
+    return () => { dead = true; if (stop) stop(); watcher.current = null; setPoseDebug(null); };
   }, [cam, mode, live, poseAttempt, suspended]);
   // 정해진 시점: 연주 단계에 들어가고 5초 뒤 한 번 (파트당 1번)
   useEffect(() => {
@@ -584,6 +597,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     {idea && <video ref={eye} className="eye" playsInline muted />}
     {live && alertKind && cam === 'on' && <PostureCoach stream={camStream} cam={cam} kind={alertKind} />}
     {al && <div className="palert" role="status"><i>!</i><div><b>{al.title}</b><small>{al.text}</small></div></div>}
+    {debugOn && live && cam === 'on' && mode === 'real' && <PoseDebug stream={camStream} data={poseDebug} onCalibrate={() => (watcher.current ? watcher.current.calibrate(3000) : Promise.resolve(null))} onClear={clearBaseline} />}
     <div className="screen" key={idx}>
       <div className="row">
         <button className="iconbtn" onClick={() => setExit(true)} aria-label="나가기">✕</button>

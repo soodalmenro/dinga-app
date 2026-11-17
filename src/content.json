@@ -443,6 +443,9 @@
   "wristDeg": 45,
   "tiltDeg": 12,
   "neckRatio": 0.3,
+  "wristDelta": 25,
+  "tiltDelta": 8,
+  "neckDrop": 0.75,
   "holdMs": 1500,
   "cooldownMs": 15000,
   "maxPerPart": 3
