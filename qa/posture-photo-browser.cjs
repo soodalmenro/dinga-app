@@ -29,21 +29,24 @@ const { chromium } = require('playwright');
     const text = await page.locator('.screen').innerText();
     assert.ok(text.includes('사진으로 확인한 결과예요'), 'models load and run on the captured photo: ' + text.slice(0, 200));
     assert.ok(['손목', '어깨', '엄지'].every((name) => text.includes(name)), 'three posture rows');
-    // 11/18 QA: 행마다 괜찮음/주의 중 하나가 늘 체크돼 있다(사진으로 못 본 곳은 괜찮음, 참가자가 바꿀 수 있음)
-    assert.equal(await page.locator('.card button.pill.ok, .card button.pill.warn').count(), 3, 'every row has one checked answer');
+    // 11/18 18:40 QA: 사진으로 못 본 곳은 '괜찮음'을 지어내지 않고 '확인 어려움' + 체크 없음(참가자가 직접 고름)
+    assert.equal(await page.locator('.card button.pill.ok, .card button.pill.warn').count(), 0, 'nothing is pre-checked when the photo shows no person');
+    assert.equal((text.match(/확인 어려움/g) || []).length, 3, 'three rows say the photo could not show them');
+    assert.ok(text.includes('확인 어려운 곳은 직접 골라 주세요') || text.includes('자세를 살펴보지 못했어요'), 'tells the participant to choose');
     const log = await page.evaluate(() => JSON.parse(localStorage.getItem('dinga-log')).filter((e) => e.type === 'posture').at(-1));
-    assert.equal(log.mode, 'real'); assert.equal(log.failed, undefined); assert.deepEqual(log.measured, { wrist: false, shoulder: false, thumb: false }, 'unmeasured parts are recorded as defaults');
-    console.log('PASS S7 photo runs MediaPipe pose+hand; every row is checked, unmeasured parts default to ok and are logged as unmeasured');
+    assert.equal(log.mode, 'real'); assert.equal(log.failed, undefined); assert.deepEqual(log.measured, { wrist: false, shoulder: false, thumb: false, guitar: null }, 'unmeasured parts are recorded');
+    console.log('PASS S7 photo runs MediaPipe pose+hand; unseen parts show 확인 어려움 with nothing checked');
     await button('연습 시작').click();
-    await button('다음').click(); await button('다음').click();
+    await button('다음').click(); await button('다음').click(); // Em 손가락 카드 → 운지법 → 파트 완료(18:40: 파트 1에 소리 내기 없음)
+    await page.getByRole('heading', { name: '파트 완료!', exact: true }).waitFor();
+    await button('다음 파트').click(); const skip = page.getByRole('button', { name: /^(건너뛰기|다음 단계로)$/ }); await skip.first().waitFor({ timeout: 8000 }).then(() => skip.first().click()).catch(() => {});
     await page.locator('.dots').waitFor();
     for (let i = 0; i < 3; i++) await page.mouse.click(375, 20);
-    await button('지금 띄우기').click();
-    await page.locator('.palert').waitFor({ timeout: 8000 });
-    assert.equal(await page.locator('.coach-card, .pip').count(), 0, 'mini camera removed (11/18): the alert is text + vibration only');
+    await button('지금 띄우기').click(); await page.waitForTimeout(2500);
+    assert.equal(await page.locator('.palert').count(), 0, '18:40: no posture alert on the lesson screen');
+    assert.equal(await page.locator('.coach-card, .pip').count(), 0, 'no mini camera');
     assert.equal(await page.evaluate(() => !!document.querySelector('video.eye')?.srcObject), false, 'no camera stream during play in timed/manual mode');
-    await page.locator('.palert').waitFor({ state: 'detached', timeout: 8000 });
-    console.log('PASS posture alert during play is text only, no camera window or stream');
+    console.log('PASS no posture alert or camera during lesson play (18:40)');
     assert.deepEqual(errors, []);
   } finally { await browser.close(); await new Promise((r) => server.httpServer.close(r)); }
 })().catch((e) => { console.error(e); process.exitCode = 1; });

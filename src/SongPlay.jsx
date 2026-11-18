@@ -1,7 +1,6 @@
 // 곡 연습(가사 위에 코드가 흐르는 화면)과 곡 연습 리포트
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, sfx, logEvent } from './lib.js';
-import { SongPosture } from './SongPosture.jsx';
 import { ear } from './guitarEar.js';
 import { createChordBarEvidence } from './chordBarEvidence.js';
 import { sameChord } from './chordMatch.js';
@@ -14,14 +13,17 @@ import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { useBeforeUnload } from './useBeforeUnload.js';
 
-const SP = content.songPractice;
-const COURSE_PART_SECONDS = 180;
+// 곡 두 개: 학습 코스 1 완주하기·연습 탭 곡 연습 = songPractice(Itsy Bitsy Spider), 친구와 같은 곡 연습 = friendSong(작은별). 11/18 18:40 QA로 분리
+const SONGS = { course: content.songPractice, friend: content.friendSong };
+export const songOf = (friend) => (friend ? SONGS.friend : SONGS.course);
 // 코드 하나 = 한 마디(4박). 화면 순서대로 편 목록
-const BARS = SP.sections.flatMap((sec, si) => sec.lines.flatMap((line, li) => line.map(([chord, lyric]) => ({ chord, lyric, si, li }))));
+const barsOf = (sp) => sp.sections.flatMap((sec, si) => sec.lines.flatMap((line, li) => line.map(([chord, lyric]) => ({ chord, lyric, si, li }))));
+const SONG_BARS = { course: barsOf(SONGS.course), friend: barsOf(SONGS.friend) };
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 const PAIR = (a, b) => (['Em', 'G', 'C'].indexOf(a) < ['Em', 'G', 'C'].indexOf(b) ? [a, b] : [b, a]);
 
-export function summarizeSong(list) {
+export function summarizeSong(list, SP = SONGS.course) {
+  const BARS = SP === SONGS.friend ? SONG_BARS.friend : SONG_BARS.course;
   const played = list.length;
   const measured = played > 0 && list.every((result) => result.t !== 'unmeasured');
   const isUncertain = (result) => result.t !== 'unmeasured' && result.t !== 'none' && result.c === null;
@@ -60,6 +62,8 @@ export function summarizeSong(list) {
 }
 
 export function SongPlay({ s, update, go, params, paused = false }) {
+  const friend = !!params?.friend && !params?.fromLesson;
+  const SP = songOf(friend); const BARS = SONG_BARS[friend ? 'friend' : 'course'];
   const [tempo, setTempo] = useState(40);
   const [phase, setPhase] = useState('wait'); // wait | play | pause
   useBeforeUnload(phase !== 'wait');
@@ -68,7 +72,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   const [res, setRes] = useState([]); // [{t:'ok'|'late'|'none', c:true|false}]
   const [exit, setExit] = useState(false);
   const [metro, setMetro] = useState(false);
-  const [melody, setMelody] = useState(true); // 곡 멜로디(Itsy Bitsy Spider). 인트로 4마디는 1절 첫 4마디 멜로디를 미리 들려 준다
+  const [melody, setMelody] = useState(true); // 곡 멜로디(content의 melody, 마디마다 [음, 박])
   const melodyRef = useRef(true); melodyRef.current = melody;
   const microphone = useMicrophone();
   const { micOn, skipMic, inputLost } = microphone;
@@ -129,28 +133,29 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   const finish = (list) => {
     if (finished.current) return;
     finished.current = true;
-    const { played, scored, score, beatAcc, chordAcc, secs, trans, coverage } = summarizeSong(list);
+    const { played, scored, score, beatAcc, chordAcc, secs, trans, coverage } = summarizeSong(list, SP);
     const complete = played === BARS.length; const fromLesson = !!params?.fromLesson;
-    const creditedSeconds = complete && fromLesson ? COURSE_PART_SECONDS : Math.round((played * 4 * 60) / ((SP.bpm * tempo) / 100));
+    // 레슨 파트처럼 실제로 친 시간만 쌓는다(18:40: 정해진 3분 대신 실제 시간)
+    const creditedSeconds = Math.round((played * 4 * 60) / ((SP.bpm * tempo) / 100));
     update((d) => {
       const t = today(d); const first = !(d.challenge && d.challenge.done);
-      if (complete && d.panel.variant === 'idea') { d.challenge = { done: true }; if (first) logEvent('challenge_done', {}); }
+      if (complete && friend && d.panel.variant === 'idea') { d.challenge = { done: true }; if (first) logEvent('challenge_done', {}); }
       d.songPractice = {
-        last: { score, beatAcc, chordAcc, tempo, secs, trans, coverage, bars: list, complete, judge: judgeMode, fromLesson: !!(params && params.fromLesson), firstComplete: complete && !d.songPractice.count, challengeFirst: complete && first, date: t, back },
+        last: { score, beatAcc, chordAcc, tempo, secs, trans, coverage, bars: list, complete, judge: judgeMode, fromLesson: !!(params && params.fromLesson), friend, firstComplete: complete && !d.songPractice.count, challengeFirst: complete && friend && first, date: t, back },
         count: d.songPractice.count + (complete ? 1 : 0),
         best: complete && scored && judgeMode === 'mic' ? Math.max(d.songPractice.best, score) : d.songPractice.best,
       };
       if (complete && params && params.fromLesson) { d.done.song[2] = true; d.resume = null; }
       d.history[t] = (d.history[t] || 0) + creditedSeconds;
     });
-    logEvent('songplay_end', { tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode, complete, fromLesson, creditedSeconds, diagnostics: songDiagnostics(list, BARS.map((bar) => bar.chord), judgeMode) });
+    logEvent('songplay_end', { song: friend ? 'friend' : 'course', tempo, played, score, beatAcc, chordAcc, coverage, judge: judgeMode, complete, fromLesson, creditedSeconds, diagnostics: songDiagnostics(list, BARS.map((bar) => bar.chord), judgeMode) });
     sfx.done(); go('songreport', { back });
   };
 
   useEffect(() => {
     if (phase !== 'play' || suspended) return undefined;
     const stop = micOn ? makeOnsetDetector((_at,_level,originalElapsed) => hits.current.push(originalElapsed),{snapshot:()=>el.current,simulated:judgeMode!=='mic'}) : () => {};
-    if (!startLogged.current) { startLogged.current = true; logEvent('songplay_start', { tempo, mic: !!micOn, judge: judgeMode }); }
+    if (!startLogged.current) { startLogged.current = true; logEvent('songplay_start', { song: friend ? 'friend' : 'course', tempo, mic: !!micOn, judge: judgeMode }); }
     let last = performance.now(); let lastBeat = Math.floor(el.current / beatMs);
     const judge = (i) => {
       const mode = judgeMode; const prevDiff = i > 0 && BARS[i].chord !== BARS[i - 1].chord;
@@ -205,7 +210,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   let n = -1;
   return (
     <div className="screen sp">
-      {s.panel.variant === 'idea' && s.panel.alert === 'auto' && <SongPosture active={phase === 'play' && !suspended} />}
+      {/* 11/18 18:40 QA: 곡 연습 중 자세 알림도 띄우지 않는다 */}
       <div className="row"><Piki name="main" size={38} still /><h1 style={{ fontSize: 17, flex: 1 }}>{SP.title}{params && params.fromLesson ? ' · 완주' : ''}</h1><button className="iconbtn" aria-label="곡 연습 나가기" onClick={() => setExit(true)}>✕</button></div>
       {micOn&&judgeMode==='mic'&&<GuitarInputStatus retry={microphone.retryMic}/>}
       <div className="sp-body" ref={scoreView}>
@@ -258,6 +263,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
 const SEC = { uncertain: ['판정 어려움', ''], unmeasured: ['측정 안 됨', ''], good: ['잘 쳤어요', 'ok'], late: ['조금 늦어요', 'late'], check: ['코드 확인', 'late'], retry: ['다시 해봐요', 'none'], skip: ['안 쳤어요', 'none'] };
 export function SongReport({ s, go, params }) {
   const last = s.songPractice.last;
+  const SP = songOf(last?.friend);
   if (!last) return <div className="screen center"><div className="grow sub">아직 곡 연습 기록이 없어요</div><button className="btn" onClick={() => go('learn')}>학습으로</button></div>;
   const back = (params && params.back) || last.back || 'learn';
   const scored = last.score != null;
@@ -293,7 +299,7 @@ export function SongReport({ s, go, params }) {
         </div>
       )}
       <div className="grow" style={{ minHeight: 0 }} />
-      <div className="two"><button className="btn soft" onClick={() => go('songplay', { key: Date.now(), back, fromLesson: !!last.fromLesson })}>다시 연주</button><button className="btn" onClick={() => go(back)}>완료</button></div>
+      <div className="two"><button className="btn soft" onClick={() => go('songplay', { key: Date.now(), back, fromLesson: !!last.fromLesson, friend: !!last.friend })}>다시 연주</button><button className="btn" onClick={() => go(back)}>완료</button></div>
     </div>
   );
 }

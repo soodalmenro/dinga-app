@@ -88,7 +88,7 @@ function Challenge({ s, go, toast }) {
         ))}
       </div>
       <div className="col" style={{ gap: 6 }}><b style={{ fontSize: 12 }}>{people.length}명 중 {n}명 완료</b><div className="gauge" style={{ gap: 4 }}>{people.map((p, i) => <i key={p.name} className={i < n ? 'on' : ''} style={{ height: 8 }} />)}</div></div>
-      <button className={`btn${done ? ' soft' : ''}`} style={{ minHeight: 52 }} onClick={() => go('songplay', { key: Date.now(), back: 'my' })}>{done ? '한 번 더 연주하기' : '곡 연습하러 가기'}</button>
+      <button className={`btn${done ? ' soft' : ''}`} style={{ minHeight: 52 }} onClick={() => go('songplay', { key: Date.now(), back: 'my', friend: true })}>{done ? '한 번 더 연주하기' : '곡 연습하러 가기'}</button>
     </div>
   );
 }
@@ -392,7 +392,7 @@ function My({ s, go, toast }) {
     <div className="screen">
       <div className="row" style={{ gap: 12 }}><div className="avatar" style={{ width: 64, height: 64 }}><Piki name="happy" size={52} still /></div><div><h1 style={{ fontSize: 22 }}>내 기록</h1><div className="sub" style={{ fontSize: 13 }}>연속 {streak(s)}일</div></div></div>
       <div className="row"><div className="card stat"><small>출석</small><b>{s.attendances.length}일</b></div><div className="card stat"><small>연습 시간</small><b>{totalMinutes(s)}분</b></div></div>
-      <div className="col" style={{ gap: 8 }}><b style={{ fontSize: 13 }}>최근 7일</b><div className="week">{days.map((d) => <div key={d}><Guitar on={(s.history[d] || 0) >= 60} />{wd(d)}</div>)}</div></div>
+      <div className="col" style={{ gap: 8 }}><b style={{ fontSize: 13 }}>최근 7일</b><div className="week">{days.map((d) => <div key={d}><Guitar on={(s.history[d] || 0) > 0} />{wd(d)}</div>)}</div></div>
       <button className="card row between tap" onClick={() => go('history')}><b style={{ fontSize: 15 }}>기록 보기</b><b style={{ color: 'var(--gray)', fontSize: 18 }}>›</b></button>
       {s.panel.variant === 'idea' ? <Challenge s={s} go={go} toast={toast} /> : (<>
       <div><b style={{ fontSize: 15 }}>친구와 같은 곡 연습</b><div className="sub" style={{ fontSize: 12 }}>샘플 데이터예요</div></div>
@@ -416,13 +416,13 @@ function History({ s, go }) {
       <div className="row"><button className="iconbtn" aria-label="MY로 돌아가기" onClick={() => go('my')}>‹</button><h1 style={{ fontSize: 22 }}>기록</h1></div>
       <b style={{ fontSize: 13, color: 'var(--gray)' }}>최근 7일</b>
       {days.map((d) => {
-        const a = attendedOn(s, d); const min = Math.floor((s.history[d] || 0) / 60);
-        const active = !!a || min > 0;
+        const a = attendedOn(s, d); const sec = s.history[d] || 0; const min = Math.floor(sec / 60);
+        const active = !!a || sec > 0; // 1분이 안 돼도 연습한 날은 연습한 날(18:40부터 실제 연습 시간을 쌓음)
         return (
           <div key={d} className="card row" style={active ? { padding: '14px 16px' } : { padding: '14px 16px', background: 'var(--none)', boxShadow: 'none' }}>
-            {s.panel.variant === 'idea' ? <span className="week" style={{ display: 'block' }}><Guitar on={min > 0} /></span> : <i style={{ width: 12, height: 12, borderRadius: 6, background: active ? 'var(--o)' : '#CFC6B8' }} />}
+            {s.panel.variant === 'idea' ? <span className="week" style={{ display: 'block' }}><Guitar on={sec > 0} /></span> : <i style={{ width: 12, height: 12, borderRadius: 6, background: active ? 'var(--o)' : '#CFC6B8' }} />}
             <b style={{ flex: 1, fontSize: 15, color: active ? 'var(--ink)' : 'var(--gray)' }}>{d.slice(5).replace('-', '/')} {wd(d)}</b>
-            {active ? <>{a ? <span className={`pill ${a.method === 'sound' ? 'ok' : 'warn'}`}>{a.method === 'sound' ? '소리' : '수동'} 출석</span> : <span className="sub" style={{ fontSize: 12 }}>출석 안 함</span>}<b style={{ fontSize: 14 }}>{min}분</b></> : <span className="sub" style={{ fontSize: 13 }}>쉬었어요</span>}
+            {active ? <>{a ? <span className={`pill ${a.method === 'sound' ? 'ok' : 'warn'}`}>{a.method === 'sound' ? '소리' : '수동'} 출석</span> : <span className="sub" style={{ fontSize: 12 }}>출석 안 함</span>}<b style={{ fontSize: 14 }}>{sec > 0 && sec < 60 ? `${sec}초` : `${min}분`}</b></> : <span className="sub" style={{ fontSize: 13 }}>쉬었어요</span>}
           </div>
         );
       })}
@@ -430,6 +430,7 @@ function History({ s, go }) {
   );
 }
 
+const PARTICIPANT_LAST_ATTEND = { P1: null, P2: 1, P3: 2, P4: 4 };
 // 평가 진행용 숨은 패널. 화면 오른쪽 위를 세 번 누르면 열린다
 function Panel({ s, update, setS, close, go, editingLocked = false }) {
   const set = (k, v) => {
@@ -446,6 +447,19 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
   const [inputDiagOn, setInputDiagOn] = useState(readInputDiagnosticsFlag);
   const operation = useRef(0);
   useEffect(() => () => { operation.current += 1; }, []);
+  // 참가자 번호를 P1~P4로 바꾸면(입력을 마칠 때) 그 참가자 조건으로 시작한다(11/18 18:40 QA).
+  // 앱 기록(출석·연습·이어하기·자세 결과)만 처음으로 돌리고, 평가 설정과 행동 기록(dinga-log)은 남긴다.
+  // P1: 처음 가입한 상태 / P2·P3·P4: 마지막 출석 1·2·4일 전
+  const pidAtFocus = useRef(s.panel.pid);
+  const applyParticipant = (pid) => {
+    const ago = PARTICIPANT_LAST_ATTEND[String(pid).trim().toUpperCase()];
+    if (ago === undefined || pid === pidAtFocus.current) return;
+    pidAtFocus.current = pid;
+    mic.stop(); const n = resetAll(); KEEP_ON_RESET.forEach((k) => { n.panel[k] = s.panel[k]; }); n.panel.pid = pid;
+    if (ago !== null) n.attendances = [{ date: addDays(today(n), -ago), method: 'sound' }];
+    logEvent('participant_preset', { pid, lastAttendDaysAgo: ago });
+    setS(n); setNotice(ago === null ? `${pid}: 처음 가입한 상태로 시작해요` : `${pid}: 마지막 출석 ${ago}일 전으로 시작해요`);
+  };
   useEffect(() => { operation.current += 1; setLogText(null); setNotice(null); }, [s.panel.pid]);
   const report = (scope) => {
     const events = getLog();
@@ -484,7 +498,8 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
   return (
     <Modal onClose={close}>
       <div><h1 style={{ fontSize: 18 }}>평가 패널</h1><div className="sub" style={{ fontSize: 12 }}>참가자에게는 보여 주지 않아요</div></div>
-      <div className="panel-row"><span>참가자 번호</span><input disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.pid} onChange={(e) => set('pid', e.target.value)} placeholder="예: P1" /></div>
+      <div className="panel-row"><span>참가자 번호</span><input disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.pid} onChange={(e) => set('pid', e.target.value)} onFocus={(e) => { pidAtFocus.current = e.target.value; }} onBlur={(e) => applyParticipant(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} placeholder="예: P1" /></div>
+      <div className="sub" style={{ fontSize: 11 }}>P1~P4를 입력하면 마지막 출석이 자동으로 맞춰져요(P1 처음 · P2 1일 전 · P3 2일 전 · P4 4일 전). 행동 기록은 지우지 않아요.</div>
       <div className="panel-row"><span>상태 초기화</span><button onClick={() => { logEvent('reset'); mic.stop(); const n = resetAll(); KEEP_ON_RESET.forEach((k) => { n.panel[k] = s.panel[k]; }); setS(n); close(); go(n.panel.variant === 'idea' ? 'phone' : 'home'); }}>지우기</button></div>
       <div className="panel-row"><span>새로고침하면 처음부터</span><select aria-label="새로고침하면 처음부터" value={s.panel.fresh ? 'on' : 'off'} onChange={(e) => set('fresh', e.target.value === 'on')}><option value="off">끔 (기록 유지)</option><option value="on">켬 (매번 초기화)</option></select></div>
       <div className="panel-row"><span>화면 구성</span><select disabled={editingLocked} aria-describedby={editingLocked ? 'evaluation-locked-settings' : undefined} value={s.panel.variant} onChange={(e) => set('variant', e.target.value)}><option value="idea">아이디어 반영</option><option value="prd">PRD 원본</option></select></div>

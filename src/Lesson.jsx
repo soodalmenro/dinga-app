@@ -6,7 +6,7 @@
 import { Song } from './Song.jsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor, partSteps } from './lib.js';
-import { RefPhoto, RefLines, postureCopy } from './PostureReminder.jsx';
+import { RefPhoto, RefLines } from './PostureReminder.jsx';
 import { checkPosture, loadPostureCheck, POSTURE_ITEMS } from './postureCheck.js';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture, clearBaseline } from './pose.js';
@@ -18,8 +18,6 @@ import { observeMediaStream, mediaStreamIsLive } from './mediaLifecycle.js';
 import { useBeforeUnload } from './useBeforeUnload.js';
 import { GuitarInputStatus, useEarSnapshot, earLine } from './GuitarInputStatus.jsx';
 
-const PART_SECONDS = 180; // 파트 하나 약 3분
-const TRANSITION_SECONDS = 120; // 전환 연습 약 2분
 
 // 소리가 난 횟수를 센다
 function useHits(active, micOn, target=null,simulated=false) {
@@ -31,8 +29,8 @@ function useHits(active, micOn, target=null,simulated=false) {
   return n;
 }
 // 박자 타이머: 4박 카운트(음수) 뒤 0부터 beat가 올라간다
-function useBeat(bpm, speed, running, limit=Infinity) {
-  const [beat, setBeat] = useState(-4);
+function useBeat(bpm, speed, running, limit=Infinity, start=-4) {
+  const [beat, setBeat] = useState(start);
   useEffect(() => {
     if (!running) return undefined;
     const id = setInterval(() => { if (!document.hidden) setBeat((b) => Math.min(b+1,limit)); }, 60000 / (bpm * speed));
@@ -159,16 +157,16 @@ function Posture({ lesson, s, update, next, speed, running }) {
         image.onload = () => {
           canvas.getContext('2d').drawImage(image, 0, 0);
           checkPosture(canvas).then((found) => {
-            // 결과는 늘 괜찮음/주의 중 하나로 체크한다. 왼손 높이 주의는 손목 주의로 합친다(왼손이 낮으면 손목이 꺾임).
-            // 사진으로 못 본 부위는 괜찮음으로 두고 참가자가 직접 바꿀 수 있다(행동 기록에는 measured로 구분)
+            // 사진으로 본 부위만 괜찮음/주의로 체크한다. 못 본 부위(엄지는 늘, 손이 가려진 손목, 기타를 안 든 자세)는
+            // '확인 어려움'으로 두고 체크하지 않는다. 참가자가 직접 고를 수 있다(11/18 18:40 QA). 왼손 높이 주의는 손목 주의로 합친다.
             const seen = (k) => found[k].status !== 'unknown';
-            const r = { wrist: found.wrist.status === 'warn' || found.hand.status === 'warn' ? 'warn' : 'ok', shoulder: found.shoulder.status === 'warn' ? 'warn' : 'ok', thumb: 'ok' };
-            const measured = { wrist: seen('wrist') || seen('hand'), shoulder: seen('shoulder'), thumb: false };
+            const r = { wrist: found.wrist.status === 'warn' || found.hand.status === 'warn' ? 'warn' : found.wrist.status === 'ok' ? 'ok' : 'unknown', shoulder: found.shoulder.status === 'unknown' ? 'unknown' : found.shoulder.status, thumb: 'unknown' };
+            const measured = { wrist: seen('wrist') || seen('hand'), shoulder: seen('shoulder'), thumb: false, guitar: found.guitar ?? null };
             setCheck(found); setRes(r);
             update((d) => { d.posture = { date: today(d), ...r }; });
             logEvent('posture', { mode: 'real', ...r, measured, values: Object.fromEntries(POSTURE_ITEMS.map((k) => [k, found[k].value ?? null])) });
           }).catch(() => {
-            const r = { wrist: 'ok', shoulder: 'ok', thumb: 'ok' };
+            const r = { wrist: 'unknown', shoulder: 'unknown', thumb: 'unknown' };
             setCheck(null); setRes(r); logEvent('posture', { mode: 'real', failed: true });
           }).finally(() => setPhase('result'));
         };
@@ -176,7 +174,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
         return undefined;
       }
       const sim = s.panel.posture === 'sim';
-      const pick = (key) => (sim ? (Math.random() < (key === focus ? 0.4 : 0.15) ? 'warn' : 'ok') : 'ok');
+      const pick = (key) => (sim ? (Math.random() < (key === focus ? 0.4 : 0.15) ? 'warn' : 'ok') : 'unknown'); // 스스로 확인: 참가자가 고른다
       const r = { wrist: pick('wrist'), thumb: pick('thumb'), shoulder: pick('shoulder') };
       setRes(r);
       if (sim) update((d) => { d.posture = { date: today(d), ...r }; });
@@ -208,11 +206,12 @@ function Posture({ lesson, s, update, next, speed, running }) {
     const warn = keys.find((k) => res[k] === 'warn');
     return (<>
       <div className="cam" style={{ flex: 'none', height: 220 }}>{shot ? <img src={shot} alt="" /> : <div className="msg">방금 찍은 모습</div>}{real ? <PostureMarks check={check} w={shotSize?.w} h={shotSize?.h} /> : <PostureGuide mode="result" res={res} focus={focus} />}</div>
-      {real ? <div className="sub">{check ? '사진으로 확인한 결과예요. 다르면 직접 바꿔 주세요.' : '자세를 살펴보지 못했어요. 사진을 보고 직접 골라 주세요.'}</div> : s.panel.posture !== 'sim' ? <div className="sub">사진과 선을 비교해 보고 직접 골라 주세요</div> : <div className="sub">연습용 예시 결과예요. 실제 자세를 본 결과는 아니에요.</div>}
+      {real ? <div className="sub">{!check ? '자세를 살펴보지 못했어요. 사진을 보고 직접 골라 주세요.' : check.guitar === false ? '기타를 든 자세가 보이지 않아요. 기타를 들고 다시 찍어 주세요.' : Object.values(res).includes('unknown') ? '사진으로 확인한 결과예요. 확인 어려운 곳은 직접 골라 주세요.' : '사진으로 확인한 결과예요. 다르면 직접 바꿔 주세요.'}</div> : s.panel.posture !== 'sim' ? <div className="sub">사진과 선을 비교해 보고 직접 골라 주세요</div> : <div className="sub">연습용 예시 결과예요. 실제 자세를 본 결과는 아니에요.</div>}
       {keys.map((k) => (
         <div key={k} className={`card row between${k === focus ? ' sel' : ''}`} style={{ padding: '12px 16px' }}>
           <div className="row"><b>{content.postureTips[k].name}</b>{k === focus && <span className="cap">이번 레슨의 중심</span>}</div>
           {<div className="row" style={{ gap: 6 }}>
+              {res[k] === 'unknown' && <span className="cap" style={{ color: 'var(--gray)' }}>확인 어려움</span>}
               <button className={`pill ${res[k] === 'ok' ? 'ok' : 'none'}`} onClick={() => setItem(k, 'ok')}>괜찮음</button>
               <button className={`pill ${res[k] === 'warn' ? 'warn' : 'none'}`} onClick={() => setItem(k, 'warn')}>주의</button>
             </div>}
@@ -226,18 +225,25 @@ function Posture({ lesson, s, update, next, speed, running }) {
   return (<>
     <div><div className="cap">자세 확인</div><h2>{tip.title}</h2></div>
     <RefPhoto kind={focus} label="바른 자세 (참고)" className="ref" />
-    <div className="cam">
+    {/* 11/18 18:40 QA: 내 모습 카메라는 작게, 자세 안내 문구는 카메라 위가 아니라 아래 칸에 */}
+    <div className="cam cam-small">
       <video ref={video} playsInline muted />
       {!cameraReady && <div className="msg">카메라를 준비하고 있어요…</div>}
       {phase === 'count' && <div className="count">{count}</div>}
     </div>
-    <div className="card soft"><div className="cap">이번 레슨에서 볼 곳: {tip.name}</div><div className="sub">사진은 저장하지 않아요</div></div>
+    <div className="card soft pose-points">
+      <div className="cap">이번 레슨에서 볼 곳: {tip.name}</div>
+      <ul>{POSE_POINTS.map(([key, name, text]) => <li key={key} className={key === focus || (focus === 'all') ? 'on' : ''}><b>{name}</b> {text}</li>)}</ul>
+      <div className="sub">사진은 저장하지 않아요</div>
+    </div>
     {phase === 'pre'
       ? <><button className="btn" disabled={!cameraReady} onClick={() => { setCount(3); setPhase('count'); }}>촬영 (3초 뒤)</button><button className="textbtn" onClick={() => { logEvent('posture_skip'); stop(); next(); }}>건너뛰기</button></>
       : <button className="btn line" onClick={() => setPhase('pre')}>취소</button>}
   </>);
 }
 
+// 촬영 전 아래 칸에 보여 주는 바른 자세 기준(예전에는 카메라 위 태그였다)
+const POSE_POINTS = [['shoulder', '어깨', '힘 빼고 양쪽 높이 같게'], ['thumb', '엄지', '넥 뒤, 검지 맞은편'], ['wrist', '손목', '꺾지 않고 곧게'], ['hand', '왼손', '사운드홀보다 위']];
 const FINGERS = [[1, '검지'], [2, '중지'], [3, '약지'], [4, '새끼']];
 function Card({ step, next, chord }) {
   // 손가락 번호 범례(피그마 20:4): 이 코드에서 쓰는 손가락만 노랗게
@@ -302,12 +308,14 @@ function Play({ step, chord, next, micOn, running,s,retryEar }) {
   </>);
 }
 
+// 박자 연습은 '8번 쳐요' 안내 2박 → 준비 4·3·2·1 → 8박(11/18 18:40 QA: 4번 치는 줄 알았음)
+const BEAT_START = -6;
 function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
   const [bpm, setBpm] = useState(50);
   const [fin, setFin] = useState(false);
   const [hits, setHits] = useState({});
   const [retry,setRetry]=useState(false);
-  const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin&&!retry,8);
+  const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin&&!retry,8,BEAT_START);
   const simulated=s.panel.judge!=='mic'||micOn===false;
   const beatRef = useRef(beat); beatRef.current = beat;
   // 사람은 박보다 살짝 먼저 치는 일이 흔하다. 박 사이 마지막 1/4에 친 소리는 다음 박으로 센다
@@ -324,13 +332,13 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
     if(beat<8||retry||fin||!running)return undefined;
     const timer=setTimeout(()=>{
       if(!simulated&&Object.keys(hits).length<8){setRetry(true);return;}
-      if(bpm===50){setBpm(60);setBeat(-4);setHits({});}else setFin(true);
+      if(bpm===50){setBpm(60);setBeat(BEAT_START);setHits({});}else setFin(true);
     },simulated?0:1500);
     return()=>clearTimeout(timer);
   }, [beat,bpm,hits,retry,fin,running,simulated]);
   // 메트로놈: 준비 카운트와 박마다 '딱' 소리(이어폰 권장. 코드 판정은 소리 크기가 아니라 코드라 딱 소리로는 세지 않는다)
   const ticking = running && micOn !== null && !fin && !retry;
-  useEffect(() => { if (ticking && beat < 8) sfx.tick(); }, [beat, ticking]);
+  useEffect(() => { if (ticking && beat >= -4 && beat < 8) sfx.tick(); }, [beat, ticking]); // 안내 2박 동안은 소리 없음
   // 박을 놓치면 캐릭터가 째려본다(실제 마이크 판정일 때만). 코드 확인이 조금 늦게 오므로 0.7초 기다렸다가 본다
   const [miss, setMiss] = useState(false);
   const hitsRef = useRef(hits); hitsRef.current = hits;
@@ -346,7 +354,8 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
   const say = fin ? '두 템포를 모두 마쳤어요!'
     : retry ? `8박 중 ${Object.keys(hits).length}박에서 ${chord} 코드가 들렸어요. 한 번 더 해 볼까요?`
       : micOn === null ? '마이크를 준비하고 있어요'
-        : beat < 0 ? (bpm === 60 ? `이번엔 조금 더 빨라져요! 준비… ${-beat}` : `준비… ${-beat}`)
+        : beat < -4 ? (bpm === 60 ? `이번엔 조금 더 빨라져요! 딱 소리에 맞춰 ${chord} 코드를 8번 쳐요` : `딱 소리에 맞춰 ${chord} 코드를 8번 쳐요`)
+          : beat < 0 ? `준비… ${-beat}`
           : miss ? `박자를 놓쳤어요. ${chord} 코드를 딱 소리에 맞춰요`
             : simulated ? `딱 소리에 맞춰 ${chord} 코드를 쳐요` : earLine(ear, chord, `딱 소리에 맞춰 ${chord} 코드를 쳐요`);
   return (<>
@@ -355,7 +364,7 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
     <div className="dots beat" data-beat={beat}>{[0, 1, 2, 3].map((i) => { const b = bar * 4 + i; const now = !fin && beat >= 0 && beat % 4 === i; return <i key={i} className={hits[b] && beat >= 0 ? 'hit' : now ? 'now' : ''}>{i + 1}</i>; })}</div>
     {micOn&&!simulated&&<GuitarInputStatus retry={retryEar}/>}
     <Stage say={say} face={miss ? 'stare' : 'yay'} size={150} />
-    {retry&&<button className="btn line" onClick={()=>{setHits({});setBeat(-4);setRetry(false);}}>현재 템포 다시 연습</button>}
+    {retry&&<button className="btn line" onClick={()=>{setHits({});setBeat(BEAT_START);setRetry(false);}}>현재 템포 다시 연습</button>}
     <NextBar ok={fin} micOn={micOn} next={next} okText="두 템포를 모두 마쳤어요" />
   </>);
 }
@@ -363,7 +372,9 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
 function Blind({ chord, next, micOn, running,s,retryEar }) {
   const simulated=s.panel.judge!=='mic';
   const n = useHits(running, micOn,chord,simulated);
-  const say = useSay(micOn, simulated, chord, `화면을 보지 않고 ${chord} 코드를 4번 쳐 주세요`, `${chord} 코드를 쳐 보고 다음을 눌러요`);
+  // 치기 전에는 4번, 치기 시작하면 남은 횟수를 말한다(11/18 18:40 QA)
+  const ask = n === 0 ? `화면을 보지 않고 ${chord} 코드를 4번 쳐 주세요` : `화면을 보지 않고 ${chord} 코드를 ${Math.max(0, 4 - n)}번 더 쳐 주세요`;
+  const say = useSay(micOn, simulated, chord, ask, `${chord} 코드를 쳐 보고 다음을 눌러요`);
   const [hint, setHint] = useState(false);
   useEffect(() => { if (!hint) return undefined; const id = setTimeout(() => setHint(false), 3000); return () => clearTimeout(id); }, [hint]);
   return (<>
@@ -490,25 +501,17 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     window.addEventListener('dinga-posedebug', sync);
     return () => window.removeEventListener('dinga-posedebug', sync);
   }, []);
-  const [alertKind, setAlertKind] = useState(null);
-  const [alertHow, setAlertHow] = useState('timed'); // timed | manual | real. 실제 판정일 때만 단정하는 문구를 쓴다
   const alerts = useRef({ n: 0, last: 0, timed: false });
-  const alertTimer = useRef(null);
   const liveRef = useRef(live); liveRef.current = live && !suspended;
   const mode = s.panel.alert; // auto 정해진 시점(기본, 11/11 팀 결정) | real 실제 판정 | manual 진행자가 띄움 | off
   const fire = (kind, how, value) => {
     if (!liveRef.current) return;
+    // 11/18 18:40 QA: 레슨 화면 위에 잠깐 뜨던 자세 알림('손목, 곧게 펴져 있나요?')은 보여 주지 않는다.
+    // 정해진 시점 알림은 끄고, 진행자/실제 판정 알림은 행동 기록에만 남긴다(화면·진동 없음).
     alerts.current.n += 1; alerts.current.last = performance.now();
-    setAlertKind(kind); setAlertHow(how); sfx.alert();
-    logEvent('posture_alert', { how, kind, value: value == null ? undefined : Math.round(value) });
-    clearTimeout(alertTimer.current);
-    alertTimer.current = setTimeout(() => setAlertKind(null), 3000);
+    logEvent('posture_alert', { how, kind, value: value == null ? undefined : Math.round(value), shown: false });
   };
   const fireRef = useRef(fire); fireRef.current = fire;
-  useEffect(() => {
-    if (!live) { clearTimeout(alertTimer.current); setAlertKind(null); }
-    return () => clearTimeout(alertTimer.current);
-  }, [live]);
   // 연주 단계를 벗어나거나 파트를 끝내면 해당 스트림을 해제한다.
   useEffect(() => {
     // 미니카메라 삭제(11/18): 연주 중 카메라 화면은 띄우지 않는다. 실제 판정 모드에서만 화면에 안 보이게 켠다
@@ -582,12 +585,6 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     });
     return () => { dead = true; if (stop) stop(); watcher.current = null; setPoseDebug(null); };
   }, [cam, mode, live, poseAttempt, suspended]);
-  // 정해진 시점: 연주 단계에 들어가고 5초 뒤 한 번 (파트당 1번)
-  useEffect(() => {
-    if (!live || suspended || mode !== 'auto' || alerts.current.timed) return undefined;
-    const id = setTimeout(() => { alerts.current.timed = true; fireRef.current(focus === 'all' ? 'wrist' : focus, 'timed'); }, 5000 / speed);
-    return () => clearTimeout(id);
-  }, [live, cam, mode, idx, suspended]);
   // 진행자가 띄움: 평가 패널의 [지금 띄우기]
   useEffect(() => {
     let timer;
@@ -600,16 +597,19 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const retryPose = cam === 'on' && mode === 'real' && poseState === 'fail' ? () => setPoseAttempt((value) => value + 1) : undefined;
   useEffect(() => { logEvent('step', { lesson: target.lesson || 'transition', part: target.part, step: idx, kind: steps[idx].type }); }, [idx]);
 
+  const [partSeconds, setPartSeconds] = useState(0);
   const finish = () => {
     if (finished.current) return;
     finished.current = true;
+    // 정해진 3분(전환 2분)이 아니라 실제로 연습한 시간을 쌓고 보여 준다(11/18 18:40 QA: 30초 했는데 3분으로 나옴)
+    const e = elapsed(); setPartSeconds(e);
     update((d) => {
       const t = today(d);
-      d.history[t] = (d.history[t] || 0) + (target.custom ? TRANSITION_SECONDS : PART_SECONDS);
+      d.history[t] = (d.history[t] || 0) + e;
       if (!target.custom) d.done[target.lesson][target.part] = true;
       if (!target.custom && !target.review) d.resume = null;
     });
-    logEvent('part_done', { lesson: target.lesson || 'transition', part: target.part, seconds: elapsed() });
+    logEvent('part_done', { lesson: target.lesson || 'transition', part: target.part, seconds: e });
     setDone(true); sfx.done();
   };
   const next = () => {
@@ -644,7 +644,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
         <h1 style={{ fontSize: 30, color: 'var(--ot)' }}>{target.custom ? '전환 연습 완료!' : '파트 완료!'}</h1>
         <div className="sub">‘{def.title}’ 완료</div>
         <div className="row w100">
-          <div className="chip" style={{ background: 'var(--o)' }}><span>이번 연습</span><b style={{ color: 'var(--ot)' }}>{target.custom ? 2 : 3}분</b></div>
+          <div className="chip" style={{ background: 'var(--o)' }}><span>이번 연습</span><b style={{ color: 'var(--ot)' }}>{partSeconds < 60 ? `${partSeconds}초` : `${Math.floor(partSeconds / 60)}분`}</b></div>
           <div className="chip" style={{ background: '#F2617A' }}><span>오늘 연습</span><b style={{ color: '#F2617A' }}>{mins}분</b></div>
           <div className="chip" style={{ background: '#2FA8E8' }}><span>연속 출석</span><b style={{ color: '#2FA8E8' }}>{streak(s)}일</b></div>
         </div>
@@ -660,10 +660,8 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const now = step.type === 'transition' ? tbar : idx + 1;
   // 자세 알림 3초 동안 캐릭터 자리에 카메라 창과 교정 그림을 크게 보여 준다(피그마 P1, 11/18 수정: 오른쪽 위 작은 창 → 캐릭터 자리)
   const props = { step, lesson, chord, next, micOn, speed, s, update, running: !suspended, retryEar: microphone.retryMic };
-  const al = alertKind && postureCopy(alertKind, alertHow);
   return (<>
     {idea && <video ref={eye} className="eye" playsInline muted />}
-    {al && <div className="palert" role="status"><i>{alertHow === 'real' ? '!' : '?'}</i><div><b>{al.title}</b><small>{al.text}</small></div></div>}
     {debugOn && live && cam === 'on' && mode === 'real' && <PoseDebug stream={camStream} data={poseDebug} onCalibrate={() => (watcher.current ? watcher.current.calibrate(3000) : Promise.resolve(null))} onClear={clearBaseline} />}
     <div className="screen" key={idx}>
       <div className="row">

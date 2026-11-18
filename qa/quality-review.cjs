@@ -45,7 +45,7 @@ async function permissions(browser, url) {
     await button(page, '학습').waitFor();
     console.log('PASS ignored permission prompt can be skipped without late response replacing attendance');
   } finally { await page.close(); }
-  page = await openPage(browser, url, { resume: { lesson: 'em', part: 0, step: 3 } }, 'defer');
+  page = await openPage(browser, url, { resume: { lesson: 'em', part: 1, step: 0 } }, 'defer');
   try {
     await button(page, '이어서 연습하기 ›').click();
     assert.ok(await button(page, '다음').isDisabled());

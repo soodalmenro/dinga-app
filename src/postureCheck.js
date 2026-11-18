@@ -94,6 +94,17 @@ export function judgePhoto(pose, hands, w, h, side = 'left', th = content.poseTh
       }
     } else result.wrist = unknown('손이 기타에 가려 확인하기 어려워요');
   }
+  // 기타를 든 자세인지: 코드 잡는 손목이 몸 가운데에서 어깨너비의 0.8배(poseThresholds.photoGuitarReach) 넘게 옆으로 나가 있어야
+  // 넥을 잡은 것으로 본다. 손을 무릎에 둔 사진에서 손목 '괜찮음'이 나오던 문제(11/18 18:40 QA) 때문에 넣었다. 시작값이다.
+  if (seen(L) && seen(R) && seen(fret)) {
+    const width = Math.hypot((L.x - R.x) * w, (L.y - R.y) * h);
+    const reach = width > 0 ? Math.abs((fret.x - (L.x + R.x) / 2) * w) / width : 0;
+    result.guitar = reach >= (th.photoGuitarReach ?? 0.8);
+    if (!result.guitar) {
+      result.wrist = unknown('기타를 든 자세가 보이지 않아요');
+      result.hand = unknown('기타를 든 자세가 보이지 않아요');
+    }
+  } else result.guitar = null;
   result.points = points;
   return result;
 }

@@ -77,22 +77,26 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   const before = s.history[ds(0)];
   // 파트 완료
   await p.getByText('레슨 1 · Em 코드').click(); await p.getByText('파트 1 · 준비').click(); await p.waitForTimeout(600);
-  // 파트 1(11/18): 기타 안기 → (PRD 원본은 맨 앞 자세 촬영) → Em 손가락 카드 → 코드 따라하기 → Em 소리
+  // 파트 1(11/18 18:40): 기타 안기 → (자세 촬영) → Em 손가락 카드 → 운지법 → 파트 완료 (소리 내기는 파트 2로)
   await btn(p, '다음').click(); await p.waitForTimeout(400);
   ok('파트 1: 자세 촬영 뒤 운지법(Em 손가락 카드)', (await txt(p)).includes('Em 코드는 손가락 두 개면 돼요'), (await txt(p)).slice(0, 80));
-  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(500);
-  ok('연주 단계: 캐릭터 말풍선으로 코드 안내', (await txt(p)).includes('Em 코드를 4번 쳐 주세요') && await p.locator('.bubble.say').count() === 1, (await txt(p)).slice(0, 120));
-  ok('연주 단계: 소리 점 4개', await p.locator('.dots i').count() === 4);
-  await p.waitForFunction(() => document.querySelectorAll('.dots i.on').length >= 1, null, { timeout: 8000 }).catch(() => {});
-  ok('연주 단계: 마이크 소리로 점이 채워짐', await p.locator('.dots i.on').count() >= 1);
+  await btn(p, '다음').click(); await p.waitForTimeout(300);
+  ok('파트 1 운지법: 손가락이 한 번에 보이고 버튼은 [다음] 하나', (await txt(p)).includes('운지법') && await p.getByRole('button', { name: /올렸어요/ }).count() === 0);
+  ok('레슨 화면 위 자세 알림 없음(18:40)', await p.locator('.palert').count() === 0);
   await p.getByText('막혔어요').click(); await p.waitForTimeout(200);
   ok('막혔어요: 팁 + 건너뛰기', (await txt(p)).includes('이 단계 건너뛰기'));
-  await btn(p, '이 단계 건너뛰기').click(); await p.waitForTimeout(600); s = await st(p); t = await txt(p);
-  ok('파트 완료 화면: 박수 + [다음 파트] [홈으로]', t.includes('파트 완료!') && t.includes('다음 파트') && t.includes('홈으로'));
-  ok('파트 완료 저장: 완료 체크, +3분, 이어서 위치 삭제', s.done.em[0] === true && s.history[ds(0)] === before + 180 && s.resume === null, JSON.stringify([s.done.em, s.history, s.resume]));
+  await btn(p, '이 단계 건너뛰기').click();
+  await p.waitForTimeout(600); s = await st(p); t = await txt(p);
+  ok('파트 1: 운지법 다음 바로 파트 완료(소리 내기 없음)', t.includes('파트 완료!') && t.includes('다음 파트') && t.includes('홈으로'), t.slice(0, 80));
+  ok('파트 완료: 이번 연습은 실제로 한 시간', /이번 연습\s*\d+초/.test(t), (t.match(/이번 연습[^\n]*\n?[^\n]*/) || [''])[0]);
+  ok('파트 완료 저장: 완료 체크, 실제 연습 시간만 더함, 이어서 위치 삭제', s.done.em[0] === true && s.history[ds(0)] > before && s.history[ds(0)] < before + 180 && s.resume === null, JSON.stringify([s.done.em, s.history, s.resume]));
   // 단계 유형 확인(11/18 순서): 파트 2 코드 연습(소리 → 전환), 파트 3 박자 연습(안 보고 치기 → 박자)
   await btn(p, '다음 파트').click(); await p.waitForTimeout(700); await p.getByText('건너뛰기').click(); await p.waitForTimeout(400);
   t = await txt(p); ok('파트 2 코드 연습: Em 소리 내기부터', t.includes('Em 코드를 4번 쳐 주세요') && t.includes('Em'), t.slice(0, 100));
+  ok('연주 단계: 캐릭터 말풍선으로 코드 안내', await p.locator('.bubble.say').count() === 1);
+  ok('연주 단계: 소리 점 4개', await p.locator('.dots i').count() === 4);
+  await p.waitForFunction(() => document.querySelectorAll('.dots i.on').length >= 1, null, { timeout: 8000 }).catch(() => {});
+  ok('연주 단계: 마이크 소리로 점이 채워짐', await p.locator('.dots i.on').count() >= 1);
   await p.locator('.iconbtn').first().click(); await p.locator('.sheet').getByRole('button', { name: '나가기', exact: true }).click(); await p.waitForTimeout(300);
   await setSt(p, { resume: null });
   await btn(p, '학습').click(); await p.getByText('레슨 2 · G 코드').click(); await p.getByText('파트 3 · 박자 연습').click(); await p.waitForTimeout(700);
@@ -100,7 +104,8 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await p.getByText('건너뛰기').click(); await p.waitForTimeout(400);
   ok('파트 3: 안 보고 치기가 먼저 + 힌트 보기', (await txt(p)).includes('안 보고 치기') && (await txt(p)).includes('힌트 보기'));
   await p.getByText('막혔어요').click(); await btn(p, '이 단계 건너뛰기').click(); await p.waitForTimeout(400);
-  t = await txt(p); ok('박자 연습: 4박 카운트 후 50 → 60 BPM', t.includes('50 BPM') && t.includes('60 BPM') && /준비…/.test(t));
+  t = await txt(p); ok('박자 연습(18:40): 카운트 전에 "8번 쳐요" 안내', t.includes('50 BPM') && t.includes('60 BPM') && t.includes('8번 쳐요'), t.slice(0, 160));
+  await p.waitForFunction(() => /준비…/.test(document.body.innerText), null, { timeout: 8000 }).then(() => ok('박자 연습: 안내 뒤 4박 카운트', true), () => ok('박자 연습: 안내 뒤 4박 카운트', false));
   await p.waitForFunction(() => /이번엔 조금 더 빨라져요/.test(document.body.innerText), null, { timeout: 20000 }).then(() => ok('박자 연습: 60 BPM 전에 "이번엔 조금 더 빨라져요"', true), () => ok('박자 연습: 60 BPM 전에 "이번엔 조금 더 빨라져요"', false));
   await p.waitForFunction(() => document.body.innerText.includes('두 템포를 모두 마쳤어요'), null, { timeout: 20000 });
   ok('박자 연습: 두 템포 뒤 다음 활성', await btn(p, '다음').isEnabled());
@@ -202,10 +207,11 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await p.getByText('카메라를 쓸 수 없어요', { exact: true }).waitFor({ timeout: 8000 });
   t = await txt(p);
   ok('카메라 거부: 안내 후 자세 확인 건너뛰기', t.includes('카메라를 쓸 수 없어요') && t.includes('다음 단계로'));
-  await btn(p, '다음 단계로').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(400);
-  ok('마이크 없이 레슨: 다음 버튼 바로 활성', await btn(p, '다음').isEnabled() && (await txt(p)).includes('쳐 보고 다음을 눌러요'), (await txt(p)).slice(0, 120));
-  await btn(p, '다음').click(); await p.waitForTimeout(400);
-  ok('마이크 없이도 파트 완료 가능', (await txt(p)).includes('파트 완료!'));
+  await btn(p, '다음 단계로').click(); await p.waitForTimeout(300); for (let i = 0; i < 3; i++) { await btn(p, '다음').click(); await p.waitForTimeout(300); } // 기타 안기 · Em 손가락 · 운지법
+  await p.waitForTimeout(100);
+  ok('마이크 없이도 파트 완료 가능(파트 1은 운지법까지)', (await txt(p)).includes('파트 완료!'));
+  await btn(p, '다음 파트').click(); await p.waitForTimeout(600); if (await btn(p, '다음 단계로').count()) { await btn(p, '다음 단계로').click(); await p.waitForTimeout(400); }
+  ok('마이크 없이 레슨(파트 2 소리 내기): 다음 버튼 바로 활성', await btn(p, '다음').isEnabled() && (await txt(p)).includes('쳐 보고 다음을 눌러요'), (await txt(p)).slice(0, 120));
   ok('B 묶음 화면 오류 없음', p.errs.length === 0, p.errs.join(' | ')); await b.close();
 
   // ---------- C. 아이디어 반영 흐름 (위젯 · 연주 중 자세 알림 · 같은 곡 챌린지) ----------
@@ -243,7 +249,9 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('S7: 레슨 첫 파트, 설명 카드 뒤에 자세 촬영 한 번 (피그마 Flow 11/16)', t.includes('자세 확인') && t.includes('촬영'), t.slice(0, 60));
   await btn(p, '건너뛰기').click(); await p.waitForTimeout(500);
   ok('S7 다음은 운지법(Em 손가락 카드)', (await txt(p)).includes('Em 코드는 손가락 두 개면 돼요'));
-  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(1200);
+  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(600);
+  // 18:40: 파트 1에는 소리 내기가 없다 → 파트 2 소리 내기에서 연주 단계 확인
+  await btn(p, '다음 파트').click(); await p.waitForTimeout(700); if (await btn(p, '건너뛰기').count()) await btn(p, '건너뛰기').click(); await p.waitForTimeout(1200);
   ok('P1: 연주 단계에서 카메라 창은 계속 띄우지 않고 판정용 영상만 준비', await p.locator('.pip').count() === 0 && await p.evaluate(() => { const v = document.querySelector('video.eye'); return !!(v && v.srcObject); }));
   await p.waitForFunction(() => /pose_ready|pose_fail/.test(localStorage.getItem('dinga-log') || ''), null, { timeout: 25000 }).catch(() => {});
   let lg2 = await logs();
@@ -257,24 +265,21 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
     lm[19] = P(0.86, 0.55); lm[17] = P(0.86, 0.56); lm[11] = P(0.6, 0.33); const tilt = window.dingaPose.judge(window.dingaPose.measure(lm, 'left', 480, 640));
     return { straight, bent, tilt }; });
   ok('판정 계산: 손목 곧음 → 문제 없음 / 90도 꺾임 → 손목 / 어깨 기울어짐 → 어깨', pj.straight.length === 0 && pj.bent.includes('wrist') && pj.tilt.includes('shoulder'), JSON.stringify(pj));
-  await panel(); await btn(p, '지금 띄우기').click(); const t1 = Date.now(); await p.locator('.palert').waitFor({ timeout: 8000 }).catch(() => {});
-  ok('P1 진행자가 띄움: 알림 한 줄 (손목)', await p.locator('.palert').count() === 1 && (await p.locator('.palert').innerText()).includes('손목, 곧게 펴져 있나요?'));
-  ok('P1: 미니카메라 삭제(11/18) — 알림은 문구만, 카메라 창 없음', await p.locator('.coach-card').count() === 0 && await p.locator('.pip').count() === 0);
-  const t2 = Date.now(); await p.locator('.palert').waitFor({ state: 'detached', timeout: 9000 }).catch(() => {}); const shown = Date.now() - t2;
-  ok('P1: 알림과 카메라 창은 약 3초 뒤 사라짐', await p.locator('.palert').count() === 0 && await p.locator('.pip').count() === 0 && shown > 2000 && shown < 6000, `${t2 - t1}ms 뒤 뜸, ${shown}ms 보임`);
-  console.log(`  (알림: 누른 뒤 ${t2 - t1}ms에 뜸, ${shown}ms 동안 보임)`);
-  await panel(); await p.locator('.panel-row').filter({ has: p.getByText('자세 알림', { exact: true }) }).locator('select').selectOption('auto'); await btn(p, '닫기').click(); await p.locator('.palert').waitFor({ timeout: 8000 }).catch(() => {});
-  ok('P1 정해진 시점: 5초(×3 속도) 뒤 알림', await p.locator('.palert').count() === 1);
+  // 18:40: 레슨 화면 위 자세 알림은 띄우지 않는다. 진행자가 띄움도 화면에는 안 나오고 행동 기록에만 남는다
+  await panel(); await btn(p, '지금 띄우기').click(); await p.waitForTimeout(2500);
+  ok('P1 진행자가 띄움(18:40): 화면 위 알림 없음, 카메라 창 없음', await p.locator('.palert').count() === 0 && await p.locator('.coach-card, .pip').count() === 0);
+  await panel(); await p.locator('.panel-row').filter({ has: p.getByText('자세 알림', { exact: true }) }).locator('select').selectOption('auto'); await btn(p, '닫기').click(); await p.waitForTimeout(3500);
+  ok('P1 정해진 시점(18:40): 알림이 뜨지 않음', await p.locator('.palert').count() === 0);
   lg2 = await logs();
-  ok('행동 기록: 자세 알림이 방식과 함께 남음', ['manual', 'timed'].every((h) => lg2.some((x) => x.type === 'posture_alert' && x.how === h)) && lg2.some((x) => x.type === 'widget_open'));
+  ok('행동 기록: 진행자 알림은 표시 없이 기록만', lg2.some((x) => x.type === 'posture_alert' && x.how === 'manual' && x.shown === false) && !lg2.some((x) => x.type === 'posture_alert' && x.how === 'timed') && lg2.some((x) => x.type === 'widget_open'));
   await panel(); await p.locator('.sheet').getByRole('button', { name: '다음', exact: true }).click(); await p.waitForTimeout(800);
   ok('파트 완료 뒤 작은 카메라 꺼짐', (await txt(p)).includes('파트 완료!') && await p.locator('.pip').count() === 0);
   await btn(p, '홈으로').click(); await p.waitForTimeout(300); await btn(p, 'MY').click(); await p.waitForTimeout(400); t = await txt(p);
-  ok('C1 MY: 친구와 같은 곡 연습 카드 (주 단위 마감 없음)', ['친구와 같은 곡 연습', '코스 1 곡', 'Itsy Bitsy Spider', '4명 중 2명 완료', '곡 연습하러 가기', '콕 찌르기'].every((x) => t.includes(x)) && !t.includes('일요일'), t.slice(0, 200));
-  ok('MY 최근 7일: 기타 아이콘 7개 (연습한 날 2개, 부서진 기타 5개)', await p.locator('.week .guitar-icon').count() === 7 && await p.locator('.week .guitar-icon.off').count() === 5);
+  ok('C1 MY: 친구와 같은 곡 연습 카드 (주 단위 마감 없음)', ['친구와 같은 곡 연습', '코스 1 곡', '작은별', '4명 중 2명 완료', '곡 연습하러 가기', '콕 찌르기'].every((x) => t.includes(x)) && !t.includes('일요일'), t.slice(0, 200));
+  ok('MY 최근 7일: 기타 아이콘 7개 (연습한 날 2개, 부서진 기타 5개)', await p.locator('.week .guitar-icon').count() === 7 && await p.locator('.week .guitar-icon.off').count() === 5, JSON.stringify(await p.evaluate(() => ({ h: JSON.parse(localStorage.getItem('dinga-v1')).history, off: document.querySelectorAll('.week .guitar-icon.off').length }))));
   await panel(); await p.locator('.panel-row', { hasText: '곡 판정' }).locator('select').selectOption('allok'); await btn(p, '닫기').click(); await p.waitForTimeout(300);
   await btn(p, '곡 연습하러 가기').click(); await p.waitForTimeout(600); t = await txt(p);
-  ok('19 곡 연습: 가사 · 코드 · 구간 · 템포 40% · 메트로놈 · 끝내기', ['Itsy Bitsy Spider', '인트로', '1절', '후렴', 'The itsy bitsy spider', 'went up the spout again', '40% 템포', '메트로놈', '멜로디', '끝내기'].every((x) => t.includes(x)) && await p.locator('.sp-bar').count() === 12 && await p.locator('.tabbar').count() === 0, t.slice(0, 120));
+  ok('19 친구와 같은 곡 연습(18:40 작은별): 가사 · 코드 · 구간 · 템포 40% · 메트로놈 · 끝내기', ['작은별', '처음', '가운데', '끝', '반짝반짝', '서쪽 하늘', '아름답게', '40% 템포', '메트로놈', '멜로디', '끝내기'].every((x) => t.includes(x)) && await p.locator('.sp-bar').count() === 12 && await p.locator('.tabbar').count() === 0, t.slice(0, 120));
   await p.waitForTimeout(1500); if ((await txt(p)).includes('바로 시작')) await p.getByText('바로 시작').click();
   await p.waitForFunction(() => document.body.innerText.includes('곡 연습 리포트'), null, { timeout: 90000 }); t = await txt(p); s = await st(p);
   ok('20 곡 연습 리포트: 첫 곡 완주, 점수, 정확도, 구간별, 코드 전환', ['첫 곡 완주!', '종합 점수', '코드 정확도', '박자 정확도', '연주 템포', '구간별 결과', '코드 전환', 'G → Em', '다시 연주', '완료'].every((x) => t.includes(x)), t.slice(0, 200));

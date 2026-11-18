@@ -13,7 +13,7 @@ const assert=require('node:assert/strict');
   }
   for(const invalid of [null,[],{}, {lesson:'unknown',part:0,step:0},{lesson:'em',part:99,step:0},{lesson:'em',part:0,step:-1},{lesson:'em',part:0,step:NaN}])assert.equal(remapResumeVariant(invalid,'idea','prd'),null);
   assert.equal(remapResumeVariant({lesson:'em',part:0,step:0},'bad','prd'),null);
-  assert.deepEqual(remapResumeVariant({lesson:'em',part:0,step:999},'idea','prd'),{lesson:'em',part:0,step:4});
+  assert.deepEqual(remapResumeVariant({lesson:'em',part:0,step:999},'idea','prd'),{lesson:'em',part:0,step:3});
   console.log(`PASS ${checked} variant-step mappings, conservative fallbacks, invalid resume and immutable input`);
  }finally{await server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -56,7 +56,7 @@ async function check(browser, url) {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await button('MY').click();
     assert.equal(await page.locator('.week .guitar-icon').count(), 7);
-    assert.equal(await page.locator('.week .guitar-icon.off').count(), 5);
+    assert.equal(await page.locator('.week .guitar-icon.off').count(), 4); // 18:40부터 1분이 안 돼도(59초) 연습한 날
     await page.locator('.week .guitar-icon img').evaluateAll((images) => Promise.all(images.map((image) => image.decode())));
     const geometry = await page.locator('.week .guitar-icon img').evaluateAll((images) => images.map((image) => ({
       loaded: image.naturalWidth > 0, width: parseFloat(getComputedStyle(image).width), height: parseFloat(getComputedStyle(image).height),
@@ -75,7 +75,7 @@ async function check(browser, url) {
     await button('곡 연습하러 가기').click();
     await page.getByText('마이크 없이 진행해요', { exact: true }).waitFor();
     await page.getByRole('button', { name: /바로 시작/ }).click();
-    await page.locator('.sp-map span.on').filter({ hasText: '후렴' }).waitFor();
+    await page.locator('.sp-map span.on').filter({ hasText: '끝' }).waitFor(); // MY 친구와 같은 곡 연습 = 작은별(처음·가운데·끝)
     const visible = await page.locator('.sp-body').evaluate((container) => {
       const active = container.querySelector('.sp-bar.now').getBoundingClientRect();
       const viewport = container.getBoundingClientRect();

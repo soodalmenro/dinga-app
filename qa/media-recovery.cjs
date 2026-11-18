@@ -29,7 +29,7 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
   const browser=await chromium.launch({channel:process.env.QA_BROWSER_CHANNEL,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
   try{
    const url='http://127.0.0.1:'+server.httpServer.address().port;
-   let page=await open(browser,url,{resume:{lesson:'em',part:0,step:3}});
+   let page=await open(browser,url,{resume:{lesson:'em',part:1,step:0}});
    try{
     await button(page,'이어서 연습하기 ›').click();await page.waitForFunction(async()=>(await import('/src/lib.js')).mic.state==='on');
     await page.waitForFunction(()=>window.mediaTests.audio.length>0,{},{timeout:2000});
@@ -87,7 +87,7 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-log')).filter(e=>e.type==='song_start').length),2,'explicit simulation conversion starts a new attempt');
     console.log('PASS eight-bar no-mic recovery restarts with explicit simulated provenance');
    }finally{await page.close();}
-   page=await open(browser,url,{resume:{lesson:'em',part:0,step:3}});
+   page=await open(browser,url,{resume:{lesson:'em',part:1,step:0}});
    try{
     await button(page,'이어서 연습하기 ›').click();await page.waitForFunction(()=>window.mediaTests.wake.length>0);
     await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>window.wakeHidden||false});window.wakeHidden=true;document.dispatchEvent(new Event('visibilitychange'));});

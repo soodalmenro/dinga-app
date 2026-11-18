@@ -66,7 +66,7 @@ function practiceResult(value) {
   if (!validTransitions) return null;
   return {
     ...value,
-    complete: value.complete === true, fromLesson: value.fromLesson === true,
+    complete: value.complete === true, fromLesson: value.fromLesson === true, friend: value.friend === true,
     firstComplete: value.firstComplete === true, challengeFirst: value.challengeFirst === true,
     score: percentage(value.score), chordAcc: percentage(value.chordAcc), beatAcc: percentage(value.beatAcc),
     tempo: reportTempo(value.tempo), back: reportBack(value.back),

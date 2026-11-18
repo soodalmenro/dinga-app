@@ -26,9 +26,9 @@ const assert = require('node:assert/strict');
     assert.equal(panel.alert, 'auto');
     assert.equal(panel.speed, 1);
     await page.getByRole('button', { name: /바로 시작/ }).click();
-    await page.locator('.palert').waitFor({ timeout: 7000 });
-    await page.waitForTimeout(4500); assert.equal(await page.locator('.coach video').count(), 0, 'mini camera removed: the cue is text only even when permission is slow'); assert.deepEqual(errors, []);
-    console.log('PASS locked fresh course with saved Em resume → panel shortcut → part 3 → start → timed cue');
+    await page.waitForTimeout(7000); assert.equal(await page.locator('.palert').count(), 0, '18:40: no posture alert during song practice');
+    assert.equal(await page.locator('.coach video').count(), 0, 'no camera during song practice'); assert.deepEqual(errors, []);
+    console.log('PASS locked fresh course with saved Em resume → panel shortcut → part 3 → start → no posture alert (18:40)');
   } finally {
     await browser.close();
     await new Promise(resolve => server.httpServer.close(resolve));
