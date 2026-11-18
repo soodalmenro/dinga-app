@@ -16,7 +16,7 @@ export function PostureFix({ kind }) {
   return src ? <img src={src} alt={content.liveFixes[kind] || ''} /> : <b>{content.liveFixes[kind]}</b>;
 }
 
-// 바른 자세 참고 사진: 어쿠스틱 체이서 「통기타를 연주하는 바른 자세」(acousticchaser.tistory.com/151, 사용 허락 받음)의
+// 바른 자세 참고 사진: 어쿠스틱 체이서 「통기타를 연주하는 바른 자세」(acousticchaser.tistory.com/151)의
 // "왼손을 앞으로 내밀어 준다" 사진. 내 카메라가 거울처럼 보이므로 사진도 좌우를 뒤집어 잘라 두었다(876×392).
 export const REF = { w: 876, h: 392, src: refFront };
 // 사진 위 고정 선(사진 픽셀 좌표). 내 카메라 위에도 같은 선을 같은 자리에 얹는다. 관절을 찾아 그리는 선이 아니다
