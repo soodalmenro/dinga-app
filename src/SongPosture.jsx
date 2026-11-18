@@ -1,18 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { content, sfx } from './lib.js';
-import { PostureFix, postureCopy } from './PostureReminder.jsx';
+import { PostureCompare, postureCopy } from './PostureReminder.jsx';
 
-// place: 'stage' = 캐릭터 자리에 크게(레슨 연주 단계), 'center' = 화면 가운데에 겹쳐서(곡 연습)
+// 자세 알림 3초 동안 뜨는 비교 창: 위는 바른 자세 사진, 아래는 내 모습(같은 고정 선).
+// place: 'stage' = 캐릭터 자리(레슨 연주 단계), 'center' = 화면 가운데(곡 연습)
 export function PostureCoach({ stream, cam, kind, onReady, place = 'stage' }) {
   const v = useRef(null);
   useEffect(() => { if (v.current && stream.current) { v.current.srcObject = stream.current; v.current.play().catch(() => {}); } }, [cam]);
-  // 교정 그림: 손목 · 엄지 · 어깨(PostureReminder.jsx). 그림이 없는 부위는 문구
-  return (
-    <div className={`coach coach-card ${place}`} aria-hidden="true">
-      <div className="pip-cam">{cam === 'on' ? <video ref={v} playsInline muted onLoadedData={onReady} /> : null}<span>내 모습</span></div>
-      <div className="pip-fix"><PostureFix kind={kind} /></div>
-    </div>
-  );
+  return <PostureCompare video={v} kind={kind} cam={cam} place={place} onReady={onReady} />;
 }
 
 export function SongPosture({ active }) {

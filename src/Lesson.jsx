@@ -7,7 +7,7 @@ import { Song } from './Song.jsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor, partSteps } from './lib.js';
 import { PostureCoach } from './SongPosture.jsx';
-import { postureCopy } from './PostureReminder.jsx';
+import { RefPhoto, RefLines, postureCopy } from './PostureReminder.jsx';
 import { checkPosture, loadPostureCheck, POSTURE_ITEMS } from './postureCheck.js';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture, clearBaseline } from './pose.js';
@@ -65,13 +65,13 @@ const GUIDE_OUTLINE = [
   'M215,769 Q240,640 300,590 Q420,575 520,600'
 ];
 
-function PostureGuide({ mode, res }) {
+function PostureGuide({ mode, res, focus = 'all' }) {
   const result = mode === 'result';
   const tone = (key) => (!result || !res || !res[key] ? '#fff' : res[key] === 'ok' ? '#3FBF6F' : '#FF9A3D');
   const word = (key) => (res && res[key] === 'warn' ? '주의' : '괜찮음');
   const tag = (x, y, text, key) => {
-    const w = text.length * 11.5 + 18; const color = result ? tone(key) : '#302F46';
-    return <g key={text}><rect x={x - w / 2} y={y - 11} width={w} height={22} rx={11} fill={result ? (res && res[key] === 'warn' ? '#FFF1D6' : '#E3F6EA') : '#fff'} /><text x={x} y={y + 4} textAnchor="middle" fontSize="11" fontWeight="800" fill={result && res && res[key] === 'warn' ? '#C2620F' : result ? '#1E8A4A' : color}>{text}</text></g>;
+    const fs = result ? 11 : 14; const w = text.length * fs * 1.04 + 18; const color = result ? tone(key) : '#302F46';
+    return <g key={text}><rect x={x - w / 2} y={y - fs} width={w} height={fs * 2} rx={fs} fill={result ? (res && res[key] === 'warn' ? '#FFF1D6' : '#E3F6EA') : '#fff'} /><text x={x} y={y + fs * 0.36} textAnchor="middle" fontSize={fs} fontWeight="800" fill={result && res && res[key] === 'warn' ? '#C2620F' : result ? '#1E8A4A' : color}>{text}</text></g>;
   };
   const faint = { stroke: '#fff', strokeOpacity: mode === 'count' ? 0.3 : 0.45, strokeWidth: 1.6, strokeDasharray: '6 5', fill: 'none' };
   return (
@@ -83,21 +83,16 @@ function PostureGuide({ mode, res }) {
       <g transform="translate(316.4 159.5) scale(-0.269 0.269)" fill="none" stroke="#fff" strokeOpacity={mode === 'count' ? 0.3 : 0.55} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
         {GUIDE_OUTLINE.map((d) => <path key={d} d={d} />)}
       </g>
-      <g fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" opacity={mode === 'count' ? 0.55 : 1}>
-        <path d="M112 177H244" stroke={tone('shoulder')} />
-        <path d="M112 177L98 262L80 250" stroke={tone('wrist')} />
-        <path d="M80 250L72 214" stroke={tone('thumb')} />
-        <circle cx="112" cy="177" r="6" fill={tone('shoulder')} stroke="none" /><circle cx="244" cy="177" r="6" fill={tone('shoulder')} stroke="none" />
-        <circle cx="98" cy="262" r="5" fill={tone('wrist')} stroke="none" /><circle cx="80" cy="250" r="7" fill={tone('wrist')} stroke="none" />
-        <circle cx="72" cy="214" r="5.5" fill={tone('thumb')} stroke="none" />
+      {/* 고정 선: 위 참고 사진(RefPhoto)과 같은 선을 같은 비율로 얹는다. 사진 좌표 → 화면 좌표 */}
+      <g transform="translate(40.4 159.5) scale(0.269)" opacity={mode === 'count' ? 0.55 : 1}>
+        <RefLines kind={focus} tone={result ? tone : undefined} sw={13} hole={!result} />
       </g>
       {mode === 'pre' && <>
-        <path d="M30 268H250" stroke="#FFC53D" strokeWidth="2" strokeDasharray="5 4" />
-        {tag(196, 150, '어깨: 힘 빼고 양쪽 높이 같게')}{tag(106, 196, '엄지: 넥 뒤, 검지 맞은편')}{tag(250, 232, '손목: 꺾지 않고 곧게')}
-        <g><rect x="30" y="276" width="150" height="22" rx="11" fill="#FFC53D" /><text x="105" y="291" textAnchor="middle" fontSize="11" fontWeight="800" fill="#302F46">왼손은 이 선(사운드홀)보다 위</text></g>
-        <text x="167" y="430" textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">선에 맞춰 상체와 기타를 넣어요</text>
+        {tag(204, 162, '어깨: 힘 빼고 양쪽 높이 같게')}{tag(128, 196, '엄지: 넥 뒤, 검지 맞은편')}{tag(196, 230, '손목: 꺾지 않고 곧게')}
+        <g><rect x="24" y="256" width="196" height="28" rx="14" fill="#FFC53D" /><text x="122" y="275" textAnchor="middle" fontSize="14" fontWeight="800" fill="#302F46">왼손은 이 선(사운드홀)보다 위</text></g>
+        <text x="167" y="428" textAnchor="middle" fontSize="15" fontWeight="700" fill="#fff">위 사진처럼 선에 맞춰 앉아요</text>
       </>}
-      {result && res && <>{res.shoulder && tag(190, 160, `어깨 ${word('shoulder')}`, 'shoulder')}{res.thumb && tag(62, 196, `엄지 ${word('thumb')}`, 'thumb')}{res.wrist && tag(48, 280, `손목 ${word('wrist')}`, 'wrist')}</>}
+      {result && res && <>{res.shoulder && tag(190, 176, `어깨 ${word('shoulder')}`, 'shoulder')}{res.thumb && tag(78, 196, `엄지 ${word('thumb')}`, 'thumb')}{res.wrist && tag(118, 262, `손목 ${word('wrist')}`, 'wrist')}</>}
     </svg>
   );
 }
@@ -238,7 +233,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
     const keys = POSTURE_ITEMS.filter((k) => !(s.panel.posture !== 'real' && k === 'hand')).sort((a, b) => (a === focus ? -1 : b === focus ? 1 : 0));
     const warn = keys.find((k) => res[k] === 'warn');
     return (<>
-      <div className="cam" style={{ flex: 'none', height: 220 }}>{shot ? <img src={shot} alt="" /> : <div className="msg">방금 찍은 모습</div>}{real ? <PostureMarks check={check} w={shotSize?.w} h={shotSize?.h} /> : <PostureGuide mode="result" res={res} />}</div>
+      <div className="cam" style={{ flex: 'none', height: 220 }}>{shot ? <img src={shot} alt="" /> : <div className="msg">방금 찍은 모습</div>}{real ? <PostureMarks check={check} w={shotSize?.w} h={shotSize?.h} /> : <PostureGuide mode="result" res={res} focus={focus} />}</div>
       {real ? <div className="sub">{check ? '사진 한 장으로 본 참고 결과예요. 가려진 곳은 확인 어려움으로 보여요.' : '자세를 살펴보지 못했어요. 다시 찍거나 그대로 연습을 시작해도 돼요.'}</div> : s.panel.posture !== 'sim' ? <div className="sub">사진과 선을 비교해 보고 직접 골라 주세요</div> : <div className="sub">연습용 예시 결과예요. 실제 자세를 본 결과는 아니에요.</div>}
       {keys.map((k) => (
         <div key={k} className={`card row between${k === focus ? ' sel' : ''}`} style={{ padding: '12px 16px' }}>
@@ -259,10 +254,11 @@ function Posture({ lesson, s, update, next, speed, running }) {
   }
   return (<>
     <div><div className="cap">자세 확인</div><h2>{tip.title}</h2></div>
+    <RefPhoto kind={focus} label="바른 자세 (참고)" className="ref" />
     <div className="cam">
       <video ref={video} playsInline muted />
       {!cameraReady && <div className="msg">카메라를 준비하고 있어요…</div>}
-      <PostureGuide mode={phase === 'count' ? 'count' : 'pre'} />
+      <PostureGuide mode={phase === 'count' ? 'count' : 'pre'} focus={focus} />
       {phase === 'count' && <div className="count">{count}</div>}
     </div>
     <div className="card soft"><div className="cap">이번 레슨에서 볼 곳: {tip.name}</div><div className="sub">사진은 저장하지 않아요</div></div>
