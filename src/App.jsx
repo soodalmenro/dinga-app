@@ -368,10 +368,9 @@ function Practice({ s, go, update }) {
       {show('transition') && <><div><b style={{ fontSize: 15 }}>코드 전환 연습</b><div className="sub" style={{ fontSize: 12 }}>박자에 맞춰 코드를 바꿔요</div></div>
       {[['Em', 'G'], ['G', 'C'], ['Em', 'C']].map((p) => <Row key={p.join()} title={`${p[0]} ↔ ${p[1]}`} sub="8마디 · 약 2분" onClick={() => (idea ? go('song', { pair: p, back: 'practice', key: Date.now() }) : go('lesson', { custom: { title: `${p[0]} ↔ ${p[1]} 전환 연습`, steps: [{ type: 'transition', pair: p }] }, back: 'practice', key: Date.now() }))} />)}</>}
       {tab === 'song' && <>
-        <div><b style={{ fontSize: 15 }}>곡 연습</b><div className="sub" style={{ fontSize: 12 }}>끝낸 코스의 곡을 다시 연주해요</div></div>
-        {courseDone(s)
-          ? <div className="card row between" style={{ padding: '12px 16px' }}><div><b style={{ fontSize: 16 }}>{content.songPractice.title}</b><div className="sub" style={{ fontSize: 12 }}>코스 1{s.songPractice.best ? ` · 최고 ${s.songPractice.best}점` : ''}</div></div><button className="btn sm soft" onClick={() => go('songplay', { key: Date.now(), back: 'practice' })}>연주하기</button></div>
-          : <div className="card locked" style={{ padding: '12px 16px' }}><b style={{ fontSize: 16 }}>{content.songPractice.title}</b><div className="sub" style={{ fontSize: 12 }}>코스 1의 완주하기를 마치면 열려요</div></div>}
+        <div><b style={{ fontSize: 15 }}>곡 연습</b></div>
+        {/* 코스를 끝내지 않아도 처음부터 연주할 수 있다(11/18 수민) */}
+        <div className="card row between" style={{ padding: '12px 16px' }}><div><b style={{ fontSize: 16 }}>{content.songPractice.title}</b><div className="sub" style={{ fontSize: 12 }}>코스 1{s.songPractice.best ? ` · 최고 ${s.songPractice.best}점` : ''}</div></div><button className="btn sm soft" onClick={() => go('songplay', { key: Date.now(), back: 'practice' })}>연주하기</button></div>
         {content.course.next.map((n, i) => <div key={n.title} className="card locked" style={{ padding: '12px 16px' }}><b style={{ fontSize: 16 }}>코스 {i + 2} 곡</b><div className="sub" style={{ fontSize: 12 }}>코스 {i + 2}를 마치면 열려요</div></div>)}
       </>}
     </div>
