@@ -185,10 +185,8 @@ function Attend({ s, update, go, paused = false }) {
   return (
     <div className="screen center">
       <div className="row w100"><button className="iconbtn" aria-label="출석 화면 닫기" onClick={() => go('home')}>✕</button></div>
-      <div className="tc">
-        <h1>{phase === 'denied' ? '마이크를 쓸 수 없어요' : phase === 'fail' ? '소리가 잘 안 들려요' : '아는 코드를 쳐 주세요!'}</h1>
-        {phase === 'denied' && <div className="sub" style={{ marginTop: 6 }}>버튼으로 출석할 수 있어요</div>}
-      </div>
+      {/* 안내는 캐릭터 말풍선 하나로(11/18 QA·피그마 02). 마이크를 못 쓸 때만 제목을 둔다 */}
+      {phase === 'denied' && <div className="tc"><h1>마이크를 쓸 수 없어요</h1><div className="sub" style={{ marginTop: 6 }}>버튼으로 출석할 수 있어요</div></div>}
       <div className="grow stage-say"><div className="bubble say" role="status" key={say}>{say}</div><Piki name={acc > 0.3 && phase === 'listen' ? 'yay' : 'listen'} size={190} /></div>
       {phase === 'listen' && (<>
         <svg width="132" height="132" viewBox="0 0 132 132" fill="none">
