@@ -416,6 +416,16 @@ export async function keepAwake(on) {
 // ---------- 효과음과 진동 ----------
 // 성공 순간에만 짧게 낸다. 박자 소리는 마이크가 다시 주워 들을 수 있어서 내지 않는다
 let actx = null;
+// 폰(특히 iOS)은 화면을 터치할 때 만든/재개한 오디오만 소리가 난다. 곡 연습은 기타 소리로 저절로 시작되므로
+// 첫 터치 때 미리 오디오를 깨워 둔다(멜로디·메트로놈이 안 들리던 문제).
+function unlockAudio() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const b = actx.createBuffer(1, 1, 22050); const src = actx.createBufferSource(); src.buffer = b; src.connect(actx.destination); src.start(0);
+  } catch (e) {}
+}
+if (typeof window !== 'undefined') ['pointerdown', 'touchend', 'keydown'].forEach((type) => window.addEventListener(type, unlockAudio, { passive: true }));
 function tone(freqs, step = 0.1) {
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
@@ -429,16 +439,20 @@ function tone(freqs, step = 0.1) {
     });
   } catch (e) {}
 }
-// 곡 멜로디 한 음(작게, 부드러운 삼각파). delay·duration은 초
+// 곡 멜로디 한 음(삼각파 + 한 옥타브 위 사인파를 살짝 섞어 폰 스피커에서도 들리게). delay·duration은 초
 function note(midi, duration, delay = 0) {
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === 'suspended') actx.resume();
-    const o = actx.createOscillator(); const g = actx.createGain();
-    o.type = 'triangle'; o.frequency.value = 440 * 2 ** ((midi - 69) / 12);
+    const f = 440 * 2 ** ((midi - 69) / 12);
     const t0 = actx.currentTime + Math.max(0, delay); const end = t0 + Math.max(0.08, duration * 0.92);
-    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, end);
-    o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(end + 0.02);
+    const g = actx.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.32, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.12, t0 + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, end);
+    g.connect(actx.destination);
+    [['triangle', f, 1], ['sine', f * 2, 0.35]].forEach(([type, freq, level]) => {
+      const o = actx.createOscillator(); const lv = actx.createGain(); o.type = type; o.frequency.value = freq; lv.gain.value = level;
+      o.connect(lv); lv.connect(g); o.start(t0); o.stop(end + 0.02);
+    });
   } catch (e) {}
 }
 const buzz = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };

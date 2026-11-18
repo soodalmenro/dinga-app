@@ -45,30 +45,23 @@ const usableCaptureFrame = (video) => video?.readyState >= 2
   && Number.isFinite(video.videoWidth) && video.videoWidth > 0
   && Number.isFinite(video.videoHeight) && video.videoHeight > 0;
 
-// 자세 가이드 선(피그마 14 · S7 · 15): 카메라 화면 위에 상체·기타 윤곽을 흐린 점선으로 깔고
-// 어깨선과 코드 잡는 팔 선을 그린다. 틀에 맞춰 앉게 돕는 그림이며 실제 관절을 찾아 그린 선은 아니다.
+// 촬영 화면 카메라 위 가이드 선(사람 윤곽·고정 선·태그·사운드홀 선)은 11/18 QA로 지웠다. 위의 참고 사진만 보여 준다.
 
-function PostureGuide({ mode, res, focus = 'all' }) {
-  const result = mode === 'result';
+// 결과 화면(사진 판정을 쓰지 않을 때): 참고 사진과 같은 고정 선 위에 부위별 결과 태그를 얹는다.
+function PostureGuide({ res, focus = 'all' }) {
+  const result = true;
   const tone = (key) => (!result || !res || !res[key] ? '#fff' : res[key] === 'ok' ? '#3FBF6F' : '#FF9A3D');
   const word = (key) => (res && res[key] === 'warn' ? '주의' : '괜찮음');
   const tag = (x, y, text, key) => {
     const fs = result ? 11 : 14; const w = text.length * fs * 1.04 + 18; const color = result ? tone(key) : '#302F46';
     return <g key={text}><rect x={x - w / 2} y={y - fs} width={w} height={fs * 2} rx={fs} fill={result ? (res && res[key] === 'warn' ? '#FFF1D6' : '#E3F6EA') : '#fff'} /><text x={x} y={y + fs * 0.36} textAnchor="middle" fontSize={fs} fontWeight="800" fill={result && res && res[key] === 'warn' ? '#C2620F' : result ? '#1E8A4A' : color}>{text}</text></g>;
   };
-  const faint = { stroke: '#fff', strokeOpacity: mode === 'count' ? 0.3 : 0.45, strokeWidth: 1.6, strokeDasharray: '6 5', fill: 'none' };
   return (
     <svg className="poseguide" viewBox={result ? '0 20 335 300' : '0 0 335 449'} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      {!result && <rect x="30" y="30" width="275" height="412" rx="120" fill="none" stroke="#fff" strokeOpacity="0.9" strokeWidth="2" strokeDasharray="8 6" />}
       {/* 고정 선: 위 참고 사진(RefPhoto)과 같은 선을 같은 비율로 얹는다. 사진 좌표 → 화면 좌표 */}
-      <g transform="translate(40.4 159.5) scale(0.269)" opacity={mode === 'count' ? 0.55 : 1}>
+      <g transform="translate(40.4 159.5) scale(0.269)">
         <RefLines kind={focus} tone={result ? tone : undefined} sw={13} hole={!result} />
       </g>
-      {mode === 'pre' && <>
-        {tag(204, 162, '어깨: 힘 빼고 양쪽 높이 같게')}{tag(128, 196, '엄지: 넥 뒤, 검지 맞은편')}{tag(196, 230, '손목: 꺾지 않고 곧게')}
-        <g><rect x="24" y="256" width="196" height="28" rx="14" fill="#FFC53D" /><text x="122" y="275" textAnchor="middle" fontSize="14" fontWeight="800" fill="#302F46">왼손은 이 선(사운드홀)보다 위</text></g>
-        <text x="167" y="428" textAnchor="middle" fontSize="15" fontWeight="700" fill="#fff">위 사진처럼 선에 맞춰 앉아요</text>
-      </>}
       {result && res && <>{res.shoulder && tag(190, 176, `어깨 ${word('shoulder')}`, 'shoulder')}{res.thumb && tag(78, 196, `엄지 ${word('thumb')}`, 'thumb')}{res.wrist && tag(118, 262, `손목 ${word('wrist')}`, 'wrist')}</>}
     </svg>
   );
@@ -236,7 +229,6 @@ function Posture({ lesson, s, update, next, speed, running }) {
     <div className="cam">
       <video ref={video} playsInline muted />
       {!cameraReady && <div className="msg">카메라를 준비하고 있어요…</div>}
-      <PostureGuide mode={phase === 'count' ? 'count' : 'pre'} focus={focus} />
       {phase === 'count' && <div className="count">{count}</div>}
     </div>
     <div className="card soft"><div className="cap">이번 레슨에서 볼 곳: {tip.name}</div><div className="sub">사진은 저장하지 않아요</div></div>
@@ -258,15 +250,14 @@ function Card({ step, next, chord }) {
   </>);
 }
 
+// 운지법은 한 화면에 한 번에 보여 준다(11/18 QA: 손가락 1/2 단계로 나누지 않고, 다음 버튼 하나).
 function Diagram({ chord, next }) {
   const dots = content.chords[chord].dots;
-  const [f, setF] = useState(0);
-  const d = dots[f];
   return (<>
-    <div><div className="cap">손가락 {f + 1}/{dots.length}</div><div className="big">{chord}</div></div>
-    <div className="chordbox grow"><Chord name={chord} highlight={f} upTo={f} /></div>
-    <div className="card soft row"><Piki name="yay" size={52} still /><b style={{ fontSize: 15 }}>{d.finger}번({d.name}) 손가락을 {d.string}번 줄 {d.fret}프렛에</b></div>
-    <button className="btn" onClick={() => (f + 1 < dots.length ? setF(f + 1) : next())}>{f + 1 < dots.length ? '올렸어요' : '다 올렸어요'}</button>
+    <div><div className="cap">운지법</div><div className="big">{chord}</div></div>
+    <div className="chordbox grow"><Chord name={chord} /></div>
+    <div className="card soft" style={{ display: 'grid', gap: 6 }}>{dots.map((d) => <div key={d.finger} className="row" style={{ gap: 10 }}><span className="pill y">{d.finger}</span><b style={{ fontSize: 15 }}>{d.name} 손가락을 {d.string}번 줄 {d.fret}프렛에</b></div>)}</div>
+    <button className="btn" onClick={next}>다음</button>
   </>);
 }
 

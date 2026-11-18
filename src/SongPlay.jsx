@@ -68,7 +68,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   const [res, setRes] = useState([]); // [{t:'ok'|'late'|'none', c:true|false}]
   const [exit, setExit] = useState(false);
   const [metro, setMetro] = useState(false);
-  const [melody, setMelody] = useState(true); // 곡 멜로디(Itsy Bitsy Spider). 인트로 4마디는 반주 없이 코드만
+  const [melody, setMelody] = useState(true); // 곡 멜로디(Itsy Bitsy Spider). 인트로 4마디는 1절 첫 4마디 멜로디를 미리 들려 준다
   const melodyRef = useRef(true); melodyRef.current = melody;
   const microphone = useMicrophone();
   const { micOn, skipMic, inputLost } = microphone;

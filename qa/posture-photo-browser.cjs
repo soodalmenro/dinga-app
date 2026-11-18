@@ -35,7 +35,7 @@ const { chromium } = require('playwright');
     assert.equal(log.mode, 'real'); assert.equal(log.failed, undefined); assert.deepEqual(log.measured, { wrist: false, shoulder: false, thumb: false }, 'unmeasured parts are recorded as defaults');
     console.log('PASS S7 photo runs MediaPipe pose+hand; every row is checked, unmeasured parts default to ok and are logged as unmeasured');
     await button('연습 시작').click();
-    await button('다음').click(); await button('올렸어요').click(); await button('다 올렸어요').click();
+    await button('다음').click(); await button('다음').click();
     await page.locator('.dots').waitFor();
     for (let i = 0; i < 3; i++) await page.mouse.click(375, 20);
     await button('지금 띄우기').click();

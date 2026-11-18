@@ -92,6 +92,13 @@ Chordino는 같은 코드를 `Em7`, `Em/B`, `E5`처럼 변형 이름으로 읽�
 
 **검사**: `qa/qa.cjs` 148개 통과. 단계 순서·문구·카메라가 바뀐 검사 15개(`guitar-app-browser`, `posture-photo-browser`, `evaluation-*`, `camera-delayed-permission`, `progress-checkpoint`, `setting-integrity`, `resume-variant`, `course-modal`, `pose-reliability`, `media-recovery`, `repeated-use`, `guitar-failure-browser`, `input-diagnostics-browser`, `participant-handoff`)를 새 흐름에 맞췄다.
 
+## 8-2. QA 반영 추가 (같은 날)
+
+- 말풍선 줄바꿈을 단어 단위로(`word-break: keep-all`, 두 줄이면 길이를 고르게). "준비하고 있 / 어요"처럼 글자 중간에서 끊기지 않는다.
+- 운지법(diagram)을 한 화면에: 손가락 번호가 모두 그려진 코드 그림 + 손가락별 설명 + "다음" 버튼 하나. 손가락마다 "올렸어요"를 누르던 단계를 없앴다.
+- 곡 연습 멜로디가 안 들리던 문제: 인트로 4마디가 비어 있었고(→ 1절 첫 4마디 멜로디를 미리 들려 줌, 코드가 G Em C G로 같다), 음량이 작았고(0.07 → 최고 0.32, 한 옥타브 위 사인파를 섞어 폰 스피커에서도 들리게), 폰은 터치 없이 만든 오디오가 잠겨 있을 수 있어 첫 터치 때 오디오를 깨운다.
+- 자세 촬영(S7) 카메라 위 가이드(점선 윤곽·고정 선·사운드홀 점선·태그·안내 문구)를 지웠다. 위의 "바른 자세 (참고)" 사진과 결과 화면의 선·태그는 그대로다.
+
 ## 9. 그대로 둔 것
 
 - `qa/input-diagnostics-browser.cjs`는 수아 원본에서도 Chrome에서 같은 지점(출석 7초 대기)에서 실패해 원인을 확인하지 못했다. Edge 고정 검사 3개는 Chrome으로 바꿔 돌려 통과했다.

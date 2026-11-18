@@ -80,7 +80,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   // 파트 1(11/18): 기타 안기 → (PRD 원본은 맨 앞 자세 촬영) → Em 손가락 카드 → 코드 따라하기 → Em 소리
   await btn(p, '다음').click(); await p.waitForTimeout(400);
   ok('파트 1: 자세 촬영 뒤 운지법(Em 손가락 카드)', (await txt(p)).includes('Em 코드는 손가락 두 개면 돼요'), (await txt(p)).slice(0, 80));
-  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '올렸어요').click(); await p.waitForTimeout(200); await btn(p, '다 올렸어요').click(); await p.waitForTimeout(500);
+  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(500);
   ok('연주 단계: 캐릭터 말풍선으로 코드 안내', (await txt(p)).includes('Em 코드를 4번 쳐 주세요') && await p.locator('.bubble.say').count() === 1, (await txt(p)).slice(0, 120));
   ok('연주 단계: 소리 점 4개', await p.locator('.dots i').count() === 4);
   await p.waitForFunction(() => document.querySelectorAll('.dots i.on').length >= 1, null, { timeout: 8000 }).catch(() => {});
@@ -202,7 +202,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await p.getByText('카메라를 쓸 수 없어요', { exact: true }).waitFor({ timeout: 8000 });
   t = await txt(p);
   ok('카메라 거부: 안내 후 자세 확인 건너뛰기', t.includes('카메라를 쓸 수 없어요') && t.includes('다음 단계로'));
-  await btn(p, '다음 단계로').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '올렸어요').click(); await p.waitForTimeout(200); await btn(p, '다 올렸어요').click(); await p.waitForTimeout(400);
+  await btn(p, '다음 단계로').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(400);
   ok('마이크 없이 레슨: 다음 버튼 바로 활성', await btn(p, '다음').isEnabled() && (await txt(p)).includes('쳐 보고 다음을 눌러요'), (await txt(p)).slice(0, 120));
   await btn(p, '다음').click(); await p.waitForTimeout(400);
   ok('마이크 없이도 파트 완료 가능', (await txt(p)).includes('파트 완료!'));
@@ -243,7 +243,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('S7: 레슨 첫 파트, 설명 카드 뒤에 자세 촬영 한 번 (피그마 Flow 11/16)', t.includes('자세 확인') && t.includes('촬영'), t.slice(0, 60));
   await btn(p, '건너뛰기').click(); await p.waitForTimeout(500);
   ok('S7 다음은 운지법(Em 손가락 카드)', (await txt(p)).includes('Em 코드는 손가락 두 개면 돼요'));
-  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '올렸어요').click(); await p.waitForTimeout(200); await btn(p, '다 올렸어요').click(); await p.waitForTimeout(1200);
+  await btn(p, '다음').click(); await p.waitForTimeout(300); await btn(p, '다음').click(); await p.waitForTimeout(1200);
   ok('P1: 연주 단계에서 카메라 창은 계속 띄우지 않고 판정용 영상만 준비', await p.locator('.pip').count() === 0 && await p.evaluate(() => { const v = document.querySelector('video.eye'); return !!(v && v.srcObject); }));
   await p.waitForFunction(() => /pose_ready|pose_fail/.test(localStorage.getItem('dinga-log') || ''), null, { timeout: 25000 }).catch(() => {});
   let lg2 = await logs();
