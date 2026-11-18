@@ -13,6 +13,7 @@ import courseCheck from './img/course-check.svg';
 import courseChevron from './img/course-chevron.svg';
 import { useMicrophone } from './useMicrophone.js';
 import PracticeSetup from './PracticeSetup.jsx';
+import { readPoseDebugFlag, writePoseDebugFlag } from './PoseDebug.jsx';
 import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
 import { getLogStorageMode, remapResumeVariant } from './lib.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
@@ -437,6 +438,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
   const [logText, setLogText] = useState(null);
   const [exportScope, setExportScope] = useState('participant');
   const [notice, setNotice] = useState(null);
+  const [poseDebugOn, setPoseDebugOn] = useState(readPoseDebugFlag);
   const operation = useRef(0);
   useEffect(() => () => { operation.current += 1; }, []);
   useEffect(() => { operation.current += 1; setLogText(null); setNotice(null); }, [s.panel.pid]);
@@ -485,6 +487,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div className="panel-row"><span>폰 홈 화면 (위젯)</span><button onClick={() => { close(); go('phone'); }}>보기</button></div>
       <div className="panel-row"><span>딩가 알림 (폰 홈 화면에 뜸)</span><select aria-label="딩가 알림 예약" value="" onChange={(e) => { const v = e.target.value; if (v === '') return; const friend = v.startsWith('friend-'); const delay = Number(v.replace('friend-', '')); notifyRequest = v === 'cancel' ? null : { kind: friend ? 'friend' : 'mood', due: Date.now() + delay * 1000 }; logEvent(v === 'cancel' ? 'notify_cancel' : 'notify_armed', v === 'cancel' ? {} : { delay }); close(); go('phone'); setTimeout(() => window.dispatchEvent(new Event('dinga-notify')), 0); }}><option value="">고르기</option><option value="0">지금</option><option value="60">1분 뒤</option><option value="180">3분 뒤</option><option value="friend-0">친구 완료 · 지금</option><option value="friend-60">친구 완료 · 1분 뒤</option><option value="cancel">예약 취소</option></select></div>
       <div className="panel-row"><span>자세 알림</span><span><select value={s.panel.alert} onChange={(e) => set('alert', e.target.value)}><option value="auto">정해진 시점</option><option value="real">실제 판정</option><option value="manual">진행자가 띄움</option><option value="off">끔</option></select></span></div>
+      <div className="panel-row"><span>자세 판정 디버그 화면</span><select aria-label="자세 판정 디버그 화면" value={poseDebugOn ? 'on' : 'off'} onChange={(e) => { const on = e.target.value === 'on'; writePoseDebugFlag(on); setPoseDebugOn(on); }}><option value="off">끔</option><option value="on">켬 (자세 알림 · 실제 판정일 때만 보임)</option></select></div>
       <div className="panel-row"><span>자세 알림 한 번 띄우기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-alert')); close(); }}>지금 띄우기</button></div>
       <div className="panel-row"><span>전체 행동 기록 ({getLog().length}건)</span><span><button onClick={showLog}>복사</button> <button onClick={() => { operation.current += 1; clearLog(); setLogText(null); setNotice(null); set('pid', s.panel.pid); }}>비우기</button></span></div>
       <div className="panel-row evaluation-file-row"><label htmlFor="evaluation-scope">파일 저장 범위</label><select id="evaluation-scope" aria-label="파일 저장 범위" value={exportScope} onChange={(e) => { operation.current += 1; setExportScope(e.target.value); setLogText(null); setNotice(null); }}><option value="participant">현재 참가자 {s.panel.pid || '(미지정)'}</option><option value="all">전체 참가자</option></select><button onClick={saveLog}>JSON 저장</button></div>
