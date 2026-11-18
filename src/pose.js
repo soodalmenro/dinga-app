@@ -4,6 +4,7 @@
 import content from './content.json';
 import { cameraFraming } from './cameraFraming.js';
 import { validLandmark } from './landmarkValidity.js';
+import { fingerBends, thumbMetrics, wristFlexion, pickHand } from './handMetrics.js';
 
 const BASE = `${import.meta.env.BASE_URL}pose/`;
 let pose = null; let loading = null; let handler = null; let sending = null;
@@ -65,7 +66,9 @@ function angleBetween3(a, b) {
 // 관절 좌표(0~1)로 자세 값을 잰다. w, h는 영상 크기
 // world(선택): MediaPipe의 poseWorldLandmarks(미터 단위 3차원). 있으면 손목 각도를 깊이까지 넣어 다시 잰다(wrist3d).
 //   정면 카메라에서는 팔뚝이 카메라 쪽으로 뻗어 2차원 각도가 줄어 보이는데, 3차원 값은 그 왜곡이 덜하다.
-export function measure(lm, hand, w, h, world) {
+// handData(선택): 손 모델(hands.js)이 찾은 코드 잡는 손 { landmarks, world }. 있으면 손목 꺾임을 손 관절로 다시 재고(wristH),
+//   손가락 굽힘(fingers)과 엄지(thumb) 값을 더한다. 없으면 이 키들은 만들어지지 않는다.
+export function measure(lm, hand, w, h, world, handData) {
   const out = { wrist: null, tilt: null, neck: null };
   if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return out;
   const P = (i) => {
@@ -88,6 +91,15 @@ export function measure(lm, hand, w, h, world) {
         if (a3 !== null) out.wrist3d = a3; // 3차원 값이 있을 때만 키를 만든다
       }
     }
+  }
+  if (handData?.landmarks) {
+    if (el.v > 0.5 && wr.v > 0.5) {
+      const f = wristFlexion(handData.landmarks, lm, hand, w, h, handData.world, world);
+      const v = finite(f.deg3d) ? f.deg3d : f.deg2d;
+      if (finite(v)) out.wristH = v;
+    }
+    out.fingers = fingerBends(handData.landmarks, w, h);
+    out.thumb = thumbMetrics(handData.landmarks, w, h);
   }
   const L = P(11); const R = P(12); const eL = P(7); const eR = P(8);
   if (L.v > 0.5 && R.v > 0.5) {
@@ -114,8 +126,8 @@ function median(values) {
   return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
 }
 export function summarizeBaseline(samples) {
-  const out = { wrist: median(samples.map((s) => s.wrist)), wrist3d: median(samples.map((s) => s.wrist3d)), tilt: median(samples.map((s) => s.tilt)), neck: median(samples.map((s) => s.neck)), samples: samples.length };
-  return [out.wrist, out.wrist3d, out.tilt, out.neck].some((v) => v !== null) ? out : null;
+  const out = { wrist: median(samples.map((s) => s.wrist)), wrist3d: median(samples.map((s) => s.wrist3d)), wristH: median(samples.map((s) => s.wristH)), tilt: median(samples.map((s) => s.tilt)), neck: median(samples.map((s) => s.neck)), samples: samples.length };
+  return [out.wrist, out.wrist3d, out.wristH, out.tilt, out.neck].some((v) => v !== null) ? out : null;
 }
 
 // base가 있으면 "기준에서 벗어난 정도"로, 없으면 기존처럼 고정 수치로 판정한다.
@@ -123,9 +135,10 @@ export function summarizeBaseline(samples) {
 export function judge(m, th = content.poseThresholds, base = null) {
   const bad = [];
   const d = { ...DELTA_DEFAULTS, ...th };
-  const use3d = finite(m?.wrist3d);
-  const wrist = use3d ? m.wrist3d : m?.wrist;
-  const wristBase = base ? (use3d ? base.wrist3d : base.wrist) : null;
+  // 손목 값은 손 모델(wristH) > 3차원(wrist3d) > 2차원(wrist) 순으로 쓰고, 기준도 같은 종류끼리만 비교한다
+  const kind = finite(m?.wristH) ? 'wristH' : finite(m?.wrist3d) ? 'wrist3d' : 'wrist';
+  const wrist = m?.[kind];
+  const wristBase = base ? base[kind] : null;
   if (finite(wrist)) {
     if (finite(wristBase) ? wrist - wristBase > d.wristDelta : wrist > th.wristDeg) bad.push('wrist');
   }
@@ -136,7 +149,8 @@ export function judge(m, th = content.poseThresholds, base = null) {
 }
 
 // 영상에서 자세를 계속 본다. 같은 문제가 holdMs 동안 이어지면 onIssue를 부른다
-export function watchPosture(video, { onIssue, onStatus, focus = 'all' }) {
+// getHand(선택): 손 모델의 최근 결과를 돌려주는 함수(hands.js watchHands().latest). 있으면 손목·손가락 값을 손 관절로 잰다.
+export function watchPosture(video, { onIssue, onStatus, focus = 'all', getHand }) {
   const th = content.poseThresholds;
   const maxObservationGap = 1000;
   let stopped = false; let timer; let errors = 0; const since = { wrist: null, shoulder: null };
@@ -169,14 +183,16 @@ export function watchPosture(video, { onIssue, onStatus, focus = 'all' }) {
     if (!usableVideo() || now - frameStartedAt > maxObservationGap || video.videoWidth !== frameWidth || video.videoHeight !== frameHeight || !lm) { resetObservation(); return; }
     if (lastObservation !== null && now - lastObservation > maxObservationGap) { since.wrist = null; since.shoulder = null; }
     lastObservation = now;
-    const m = measure(lm, th.hand, frameWidth, frameHeight, r.poseWorldLandmarks);
+    // 코드 잡는 쪽 손: Pose가 찾은 같은 쪽 손목과 가장 가까운 손을 고른다
+    const handData = getHand ? pickHand(getHand(), lm?.[th.hand === 'right' ? 16 : 15]) : null;
+    const m = measure(lm, th.hand, frameWidth, frameHeight, r.poseWorldLandmarks, handData);
     const bad = judge(m, th, baseline);
     if (calib) { calib.samples.push(m); if (now >= calib.until) finishCalibration(false); }
     if (lastReceive !== null && now > lastReceive) { const f = 1000 / (now - lastReceive); fps = fps ? fps * 0.8 + f * 0.2 : f; }
     lastReceive = now;
     // 네 번째 인자는 디버그 화면용 부가 정보다. 기존 호출부는 무시해도 된다.
     onStatus(m.wrist == null && m.tilt == null ? 'nobody' : 'seen', m, cameraFraming(lm, th.hand, focus),
-      { landmarks: lm, world: r.poseWorldLandmarks, measured: m, baseline, bad, fps, inferenceMs: now - frameStartedAt, thresholds: th, calibrating: !!calib });
+      { landmarks: lm, world: r.poseWorldLandmarks, measured: m, baseline, bad, fps, inferenceMs: now - frameStartedAt, thresholds: th, calibrating: !!calib, hand: handData, handTracking: !!getHand });
     ['wrist', 'shoulder'].forEach((k) => {
       if (!bad.includes(k)) {
         if (since[k] != null) {

@@ -446,6 +446,7 @@
   "wristDelta": 25,
   "tiltDelta": 8,
   "neckDrop": 0.75,
+  "handModel": 1,
   "holdMs": 1500,
   "cooldownMs": 15000,
   "maxPerPart": 3

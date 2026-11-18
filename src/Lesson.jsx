@@ -10,6 +10,10 @@ import { PostureCoach } from './SongPosture.jsx';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture, clearBaseline } from './pose.js';
 import { PoseDebug, readPoseDebugFlag } from './PoseDebug.jsx';
+import { watchHands } from './hands.js';
+import { readFlag, HAND_TRACKING } from './devFlags.js';
+import { trackingGuidance } from './poseGuidance.js';
+import PostureGuidance from './PostureGuidance.jsx';
 import { useMicrophone } from './useMicrophone.js';
 import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
@@ -420,10 +424,14 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const [poseDebug, setPoseDebug] = useState(null);
   const debugOnRef = useRef(debugOn); debugOnRef.current = debugOn;
   const watcher = useRef(null);
+  // 손 인식(실험): 평가 패널에서 켜면 손 모델이 손목·손가락을 더 정확히 재 준다. 기본 꺼짐
+  const [handsOn, setHandsOn] = useState(() => readFlag(HAND_TRACKING));
+  const [trackGuide, setTrackGuide] = useState(null);
   useEffect(() => {
-    const sync = () => setDebugOn(readPoseDebugFlag());
+    const sync = () => { setDebugOn(readPoseDebugFlag()); setHandsOn(readFlag(HAND_TRACKING)); };
     window.addEventListener('dinga-posedebug', sync);
-    return () => window.removeEventListener('dinga-posedebug', sync);
+    window.addEventListener('dinga-devflag', sync);
+    return () => { window.removeEventListener('dinga-posedebug', sync); window.removeEventListener('dinga-devflag', sync); };
   }, []);
   const [alertKind, setAlertKind] = useState(null);
   const alerts = useRef({ n: 0, last: 0, timed: false });
@@ -474,7 +482,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   // 실제 판정: 자세가 기준을 넘은 채 이어지면 알림
   useEffect(() => {
     if (!live || suspended || cam !== 'on' || mode !== 'real') return undefined;
-    let stop = null; let dead = false;
+    let stop = null; let dead = false; let tracker = null;
     setPoseState('loading');
     initPose().then((ok) => {
       if (dead) return;
@@ -483,9 +491,17 @@ export default function Lesson({ s, update, target, go, paused = false }) {
       if (!ok) return;
       const th = content.poseThresholds;
       let previousStatus;
+      const watchFocus = ['wrist', 'shoulder'].includes(focus) ? focus : 'all';
+      if (handsOn) tracker = watchHands(eye.current, { complexity: th.handModel ?? 1 });
       stop = watchPosture(eye.current, {
-        focus: ['wrist', 'shoulder'].includes(focus) ? focus : 'all',
+        focus: watchFocus,
+        getHand: tracker ? () => tracker.latest() : undefined,
         onStatus: (st, measured, guidance, debug) => {
+          if (debug) {
+            setTrackGuide(trackingGuidance({ landmarks: debug.landmarks, hand: debug.thresholds?.hand, focus: watchFocus, fps: debug.fps, inferenceMs: debug.inferenceMs, handTracking: debug.handTracking, handFound: !!debug.hand }));
+          } else if (guidance && !guidance.ready) {
+            setTrackGuide({ level: 'fix', code: guidance.reason, title: guidance.title, instruction: guidance.instruction, ready: false });
+          }
           if (debugOnRef.current && debug) setPoseDebug(debug);
           if (st === 'error') {
             setPoseState('fail');
@@ -508,13 +524,13 @@ export default function Lesson({ s, update, target, go, paused = false }) {
         onIssue: (kind, m) => {
           const a = alerts.current;
           if (!liveRef.current || a.n >= th.maxPerPart || (a.last && performance.now() - a.last < th.cooldownMs)) return;
-          fireRef.current(kind, 'real', kind === 'wrist' ? (Number.isFinite(m.wrist3d) ? m.wrist3d : m.wrist) : m.tilt);
+          fireRef.current(kind, 'real', kind === 'wrist' ? [m.wristH, m.wrist3d, m.wrist].find(Number.isFinite) : m.tilt);
         },
       });
       watcher.current = stop;
     });
-    return () => { dead = true; if (stop) stop(); watcher.current = null; setPoseDebug(null); };
-  }, [cam, mode, live, poseAttempt, suspended]);
+    return () => { dead = true; if (stop) stop(); if (tracker) tracker.stop(); watcher.current = null; setPoseDebug(null); setTrackGuide(null); };
+  }, [cam, mode, live, poseAttempt, suspended, handsOn]);
   // 정해진 시점: 연주 단계에 들어가고 5초 뒤 한 번 (파트당 1번)
   useEffect(() => {
     if (!live || suspended || !['on', 'denied'].includes(cam) || mode !== 'auto' || alerts.current.timed) return undefined;
@@ -606,7 +622,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
       </div>
       {live && cam === 'denied' && <div className="sub" style={{ fontSize: 12 }}>카메라를 쓸 수 없어 자세 알림은 문구로만 알려요 <button className="textbtn" onClick={retryCamera}>카메라 다시 켜기</button></div>}
       {live && cam === 'on' && mode === 'real' && <div className="sub" style={{ fontSize: 12 }} role="status">{camNote}{retryPose && <button className="textbtn" aria-label="자세 판정 다시 시도" onClick={retryPose}>다시 시도</button>}</div>}
-      {live && mode === 'real' && poseState === 'ready' && framing && !framing.ready && <div className="sub" style={{ fontSize: 12 }} role="status">{framing.instruction}</div>}
+      {live && mode === 'real' && poseState === 'ready' && <PostureGuidance guidance={trackGuide || (framing && !framing.ready ? { level: 'fix', title: framing.title, instruction: framing.instruction } : null)} />}
       {(step.type === 'posture' || checking) && <Posture {...props} />}
       {step.type === 'card' && <Card {...props} />}
       {step.type === 'diagram' && <Diagram {...props} />}

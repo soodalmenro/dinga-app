@@ -2,6 +2,7 @@
 // 영상 위에 Pose가 찾은 관절점과 잰 값(손목·어깨·목), 기준선, 기준 자세 저장 버튼을 보여 준다.
 // 판정이 실제로 맞는지 눈으로 확인하고 기준값을 맞추는 용도이며, 영상·값은 저장하거나 전송하지 않는다.
 import React, { useEffect, useRef, useState } from 'react';
+import { HAND_BONES } from './handMetrics.js';
 
 const FLAG_KEY = 'dinga-posedebug';
 export const readPoseDebugFlag = () => { try { return localStorage.getItem(FLAG_KEY) === '1'; } catch { return false; } };
@@ -42,9 +43,13 @@ export function PoseDebug({ stream, data, onCalibrate, onClear }) {
   const th = data?.thresholds || {};
   const base = data?.baseline || null;
   const bad = data?.bad || [];
-  const use3d = Number.isFinite(m?.wrist3d);
-  const wrist = use3d ? m.wrist3d : m?.wrist;
-  const wristBase = base ? (use3d ? base.wrist3d : base.wrist) : null;
+  // 손목 값은 손 모델 > 3D > 2D 순으로 쓴다 (pose.js judge와 같은 순서)
+  const kind = Number.isFinite(m?.wristH) ? 'wristH' : Number.isFinite(m?.wrist3d) ? 'wrist3d' : 'wrist';
+  const kindLabel = { wristH: '손 모델', wrist3d: '3D', wrist: '2D' }[kind];
+  const wrist = m?.[kind];
+  const wristBase = base ? base[kind] : null;
+  const hand = data?.hand?.landmarks || null;
+  const fb = m?.fingers;
   const lm = data?.landmarks;
   const arm = th.hand === 'right' ? [14, 16, 18, 20] : [13, 15, 17, 19];
   const lines = [[11, 12], [7, 11], [8, 12], [11, arm[0]], [arm[0], arm[1]], [arm[1], arm[2]], [arm[1], arm[3]]];
@@ -69,11 +74,16 @@ export function PoseDebug({ stream, data, onCalibrate, onClear }) {
           {lm && lines.map(([a, b]) => (visible(lm[a]) && visible(lm[b])
             ? <line key={`${a}-${b}`} x1={lm[a].x} y1={lm[a].y} x2={lm[b].x} y2={lm[b].y} stroke={lineColor(a, b)} strokeWidth="0.008" strokeLinecap="round" /> : null))}
           {lm && dots.map((i) => (lm[i] ? <circle key={i} cx={lm[i].x} cy={lm[i].y} r="0.014" fill={visible(lm[i]) ? '#fff' : '#888'} stroke="#000" strokeWidth="0.003" /> : null))}
+          {hand && HAND_BONES.map(([a, b]) => (hand[a] && hand[b] ? <line key={`h${a}-${b}`} x1={hand[a].x} y1={hand[a].y} x2={hand[b].x} y2={hand[b].y} stroke="#4FC3F7" strokeWidth="0.005" strokeLinecap="round" /> : null))}
+          {hand && hand.map((p, i) => <circle key={`hp${i}`} cx={p.x} cy={p.y} r="0.008" fill="#4FC3F7" stroke="#000" strokeWidth="0.002" />)}
         </svg>
       </div>
       <div style={{ marginTop: 6 }}>
-        <Row label="손목" value={`${fmt(wrist)}°`} limit={Number.isFinite(wristBase) ? `기준 ${fmt(wristBase)}+${th.wristDelta ?? 25}` : `${th.wristDeg}`} bad={bad.includes('wrist')} note={use3d ? '3D' : '2D'} />
+        <Row label="손목" value={`${fmt(wrist)}°`} limit={Number.isFinite(wristBase) ? `기준 ${fmt(wristBase)}+${th.wristDelta ?? 25}` : `${th.wristDeg}`} bad={bad.includes('wrist')} note={kindLabel} />
         <Row label="손목 2D 참고" value={`${fmt(m?.wrist)}°`} />
+        {data?.handTracking && <Row label="손 인식" value={data?.hand ? `잡힘 ${fmt(data.hand.score, 2)}` : '못 찾음'} bad={!data?.hand} />}
+        {fb && <Row label="손가락 굽힘" value={`검${fmt(fb.index.pip)} 중${fmt(fb.middle.pip)} 약${fmt(fb.ring.pip)} 새${fmt(fb.pinky.pip)}`} note="°" />}
+        {m?.thumb && <Row label="엄지" value={`거리 ${fmt(m.thumb.reach, 2)} · 굽힘 ${fmt(m.thumb.bend)}°`} />}
         <Row label="어깨 기울기" value={`${fmt(m?.tilt, 1)}°`} limit={Number.isFinite(base?.tilt) ? `기준 ${fmt(base.tilt, 1)}±${th.tiltDelta ?? 8}` : `${th.tiltDeg}`} bad={bad.includes('shoulder')} />
         <Row label="귀–어깨 비" value={fmt(m?.neck, 2)} limit={Number.isFinite(base?.neck) ? `기준 ${fmt(base.neck, 2)}×${th.neckDrop ?? 0.75}` : `${th.neckRatio}`} bad={bad.includes('shoulder')} />
         <Row label="판정" value={bad.length ? bad.join(', ') : '괜찮음'} bad={bad.length > 0} />
