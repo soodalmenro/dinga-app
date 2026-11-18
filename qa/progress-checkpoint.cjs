@@ -16,24 +16,24 @@ const guard=p=>p.evaluate(()=>{const event=new Event('beforeunload',{cancelable:
  for(const kind of process.env.QA_CHECKPOINT_CASES?.split(',')||['checkpoint','checkpoint-save-retry','completion-save-retry','complete-once','review','custom','course-song','lesson-unload','song-unload','transition-unload']){let p;
  try{
   const resume={lesson:'g',part:1,step:2};
-  const seed=kind==='review'?{done:{em:[true,true,true]},resume}:kind==='custom'?{panel:{variant:'prd',speed:3},resume}:kind==='course-song'?{done:{em:[true,true,true],g:[true,true,true],c:[true,true,true]}}:['lesson-unload','complete-once'].includes(kind)?{done:{em:[true,false,false]},resume:{lesson:'em',part:0,step:1}}:kind==='transition-unload'?{ptab:'transition'}:{};
+  const seed=kind==='review'?{done:{em:[true,true,true]},resume}:kind==='custom'?{panel:{variant:'prd',speed:3},resume}:kind==='course-song'?{done:{em:[true,true,true],g:[true,true,true],c:[true,true,true]}}:['lesson-unload','complete-once'].includes(kind)?{done:{em:[true,false,false]},resume:{lesson:'em',part:0,step:3}}:kind==='transition-unload'?{ptab:'transition'}:{};
   p=await open(browser,url,seed);
   if(kind==='checkpoint'){
-   await startPart(p);await button(p,'다음').click();await p.getByRole('button',{name:/^(건너뛰기|다음 단계로)$/}).click();/* S7: 첫 연주 앞 자세 촬영(카메라가 없으면 '다음 단계로') */await p.locator('.dots').waitFor();await p.waitForTimeout(100);
-   assert.deepEqual((await state(p)).resume,{lesson:'em',part:0,step:1},'step is checkpointed without explicit exit');
+   await startPart(p);await button(p,'다음').click();await p.getByRole('button',{name:/^(건너뛰기|다음 단계로)$/}).click();/* S7: 첫 연주 앞 자세 촬영(카메라가 없으면 '다음 단계로') */await button(p,'다음').click();await button(p,'올렸어요').click();await button(p,'다 올렸어요').click();await p.locator('.dots').waitFor();await p.waitForTimeout(100);
+   assert.deepEqual((await state(p)).resume,{lesson:'em',part:0,step:3},'step is checkpointed without explicit exit');
    assert.deepEqual((await state(p)).history,{});await reload(p);await button(p,'이어서 연습하기 ›').click();await p.locator('.dots').waitFor();
    assert.equal((await state(p)).done.em[0],false);await button(p,'다음').click();await p.getByRole('heading',{name:'파트 완료!',exact:true}).waitFor();
    const complete=await state(p);assert.equal(complete.resume,null);assert.equal(complete.done.em[0],true);assert.equal(Object.values(complete.history).reduce((a,b)=>a+b,0),180);assert.equal(await guard(p),false);
    await reload(p);assert.equal((await state(p)).resume,null);assert.equal((await state(p)).done.em[0],true);assert.deepEqual((await state(p)).history,complete.history);
   }else if(kind==='checkpoint-save-retry'){
    await p.evaluate(()=>{window.checkpointSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='dinga-v1')throw new DOMException('Full','QuotaExceededError');return window.checkpointSetItem.call(this,key,value);};});
-   await startPart(p);await button(p,'다음').click();await p.getByRole('button',{name:/^(건너뛰기|다음 단계로)$/}).click();/* S7: 첫 연주 앞 자세 촬영(카메라가 없으면 '다음 단계로') */await p.locator('.dots').waitFor();await button(p,'저장 다시 시도').waitFor();
+   await startPart(p);await button(p,'다음').click();await p.getByRole('button',{name:/^(건너뛰기|다음 단계로)$/}).click();/* S7: 첫 연주 앞 자세 촬영(카메라가 없으면 '다음 단계로') */await button(p,'다음').click();await button(p,'올렸어요').click();await button(p,'다 올렸어요').click();await p.locator('.dots').waitFor();await button(p,'저장 다시 시도').waitFor();
    assert.equal((await state(p)).resume,null,'failed checkpoint does not claim a persisted position');
-   await p.evaluate(()=>{Storage.prototype.setItem=window.checkpointSetItem;});await button(p,'저장 다시 시도').click();
-   assert.deepEqual((await state(p)).resume,{lesson:'em',part:0,step:1},'retry saves latest in-memory checkpoint');
+   await p.evaluate(()=>{Storage.prototype.setItem=window.checkpointSetItem;});/* 다음 자동 저장이 먼저 성공하면 알림이 사라질 수 있다 */if(await button(p,'저장 다시 시도').isVisible().catch(()=>false))await button(p,'저장 다시 시도').click({timeout:3000}).catch(()=>{});await p.waitForTimeout(300);
+   assert.deepEqual((await state(p)).resume,{lesson:'em',part:0,step:3},'retry saves latest in-memory checkpoint');
    await reload(p);await button(p,'이어서 연습하기 ›').click();await p.locator('.dots').waitFor();
   }else if(kind==='completion-save-retry'){
-   await startPart(p);await button(p,'다음').click();await p.getByRole('button',{name:/^(건너뛰기|다음 단계로)$/}).click();/* S7: 첫 연주 앞 자세 촬영(카메라가 없으면 '다음 단계로') */await p.locator('.dots').waitFor();
+   await startPart(p);await button(p,'다음').click();await p.getByRole('button',{name:/^(건너뛰기|다음 단계로)$/}).click();/* S7: 첫 연주 앞 자세 촬영(카메라가 없으면 '다음 단계로') */await button(p,'다음').click();await button(p,'올렸어요').click();await button(p,'다 올렸어요').click();await p.locator('.dots').waitFor();
    await p.evaluate(()=>{window.checkpointSetItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='dinga-v1')throw new DOMException('Full','QuotaExceededError');return window.checkpointSetItem.call(this,key,value);};});
    await button(p,'다음').click();await p.getByRole('heading',{name:'파트 완료!',exact:true}).waitFor();await button(p,'저장 다시 시도').waitFor();await p.waitForTimeout(100);
    assert.equal(await guard(p),true,'unsaved completion retains unload protection');

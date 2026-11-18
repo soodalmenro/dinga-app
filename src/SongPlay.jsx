@@ -68,6 +68,8 @@ export function SongPlay({ s, update, go, params, paused = false }) {
   const [res, setRes] = useState([]); // [{t:'ok'|'late'|'none', c:true|false}]
   const [exit, setExit] = useState(false);
   const [metro, setMetro] = useState(false);
+  const [melody, setMelody] = useState(true); // 곡 멜로디(Itsy Bitsy Spider). 인트로 4마디는 반주 없이 코드만
+  const melodyRef = useRef(true); melodyRef.current = melody;
   const microphone = useMicrophone();
   const { micOn, skipMic, inputLost } = microphone;
   const [activeJudge, setActiveJudge] = useState(null);
@@ -107,6 +109,12 @@ export function SongPlay({ s, update, go, params, paused = false }) {
     else if (active.bottom > bounds.bottom) viewport.scrollTop += active.bottom - bounds.bottom;
   }, [bar, phase]);
 
+  // 기타를 치기 전까지(시작 대기) 지금 템포로 메트로놈 '딱, 딱, 딱, 딱'을 계속 낸다
+  useEffect(() => {
+    if (phase !== 'wait' || suspended || micOn === null) return undefined;
+    const id = setInterval(() => sfx.tick(), beatMs);
+    return () => clearInterval(id);
+  }, [phase, suspended, micOn, beatMs]);
   useEffect(() => {
     if (phase !== 'wait' || suspended) return undefined;
     const q = setTimeout(() => setQuiet(true), 30000);
@@ -169,7 +177,12 @@ export function SongPlay({ s, update, go, params, paused = false }) {
         spectrum.sample({observation:ear.snapshot(),now,elapsed:el.current,barMs:4*beatMs,minimumSourceAt:minimumSourceAt.current});
         if (mic.state !== 'on') return;
       }
-      if (b !== lastBeat) { lastBeat = b; if (metroRef.current) sfx.tick(); }
+      if (b !== lastBeat) {
+        lastBeat = b; if (metroRef.current) sfx.tick();
+        // 이번 박에서 시작하는 멜로디 음을 낸다(마디 안 시작 위치를 박 단위로 계산)
+        const notes = melodyRef.current && SP.melody && SP.melody[Math.floor(b / 4)];
+        if (notes) { let at = 0; const inBar = b % 4; for (const [midi, len] of notes) { if (at >= inBar && at < inBar + 1) sfx.note(midi, (len * beatMs) / 1000, ((at - inBar) * beatMs) / 1000); at += len; } }
+      }
       const finalized=judgeMode==='mic'&&micOn?finalizedGuitarBars(el.current,beatMs,BARS.length):Math.min(cur,BARS.length);
       while (out.current.length < finalized) out.current.push(judge(out.current.length));
       setRes([...out.current]); setBar(Math.min(cur, BARS.length - 1)); setBeat(b % 4);
@@ -194,7 +207,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
     <div className="screen sp">
       {s.panel.variant === 'idea' && s.panel.alert === 'auto' && <SongPosture active={phase === 'play' && !suspended} />}
       <div className="row"><Piki name="main" size={38} still /><h1 style={{ fontSize: 17, flex: 1 }}>{SP.title}{params && params.fromLesson ? ' · 완주' : ''}</h1><button className="iconbtn" aria-label="곡 연습 나가기" onClick={() => setExit(true)}>✕</button></div>
-      {micOn&&judgeMode==='mic'&&<GuitarInputStatus target={BARS[bar].chord} retry={microphone.retryMic}/>}
+      {micOn&&judgeMode==='mic'&&<GuitarInputStatus retry={microphone.retryMic}/>}
       <div className="sp-body" ref={scoreView}>
         <div className="sp-lines">
           {SP.sections.map((sec, si) => (
@@ -221,6 +234,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
       </div>
       <div className="sp-ctl">
         <button onClick={() => setMetro((v) => !v)}><i className={metro ? 'on' : ''}>♩</i>메트로놈 {metro ? '켬' : '끔'}</button>
+        <button onClick={() => setMelody((v) => !v)}><i className={melody ? 'on' : ''}>♪</i>멜로디 {melody ? '켬' : '끔'}</button>
         {phase === 'wait'
           ? <button disabled={micOn === null} onClick={() => { hits.current = []; setActiveJudge(s.panel.judge); setPhase('play'); }}><i className="big">▶</i>바로 시작</button>
           : <button onClick={() => setPhase(phase === 'play' ? 'pause' : 'play')}><i className="big">{phase === 'play' ? 'Ⅱ' : '▶'}</i>{phase === 'play' ? '일시정지' : '이어서'}</button>}

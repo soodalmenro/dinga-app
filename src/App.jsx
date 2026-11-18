@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ear } from './guitarEar.js';
-import { GuitarInputStatus } from './GuitarInputStatus.jsx';
+import { GuitarInputStatus, useEarSnapshot, earLine } from './GuitarInputStatus.jsx';
 import { content, loadAtStartup, save, resetAll, KEEP_ON_RESET, today, addDays, dayDiff, attendedOn, lastAttendance, streak, mood, moodGauge, homeLine, totalMinutes, weekStart, daysToSunday, challengeDone, lessonsFor, courseDone, mic, threshold, sfx, logEvent, getLog, clearLog, setPid, keepAwake } from './lib.js';
 import { Piki, TabBar, Modal, Sparkles, Confetti, imgSrc } from './ui.jsx';
 import Lesson from './Lesson.jsx';
@@ -152,13 +152,18 @@ function Attend({ s, update, go, paused = false }) {
       const dt = delta / 1000;
       if (ear.hearing(null,350)) { sum += dt; setAcc(sum); }
       if (sum >= 2) { finish('sound'); return; }
-      if (observedMs > 10000) { logEvent('attend_fail', { heard: Number(sum.toFixed(1)) }); setPhase('fail'); return; }
+      // 10초 동안 코드가 안 들리면 멈추지 않고 다시 듣는다(버튼 없이). 캐릭터가 '다시 소리 내 주세요!'라고 말한다
+      if (observedMs > 10000) { logEvent('attend_fail', { heard: Number(sum.toFixed(1)), auto: true }); observedMs = 0; sum = 0; setAcc(0); setAgain(true); }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
   }, [phase, round, inputLost, micOn]);
   useEffect(() => { if (inputLost) setAcc(0); }, [inputLost]);
+  const [again, setAgain] = useState(false);
+  const earState = useEarSnapshot();
+  useEffect(() => { if (acc > 0) setAgain(false); }, [acc > 0]);
+  const say = phase === 'ask' ? '마이크를 준비하고 있어요' : phase === 'denied' ? '마이크 없이 출석할 수 있어요' : again && !earState.chord ? '다시 소리 내 주세요!' : earLine(earState, null, 'Em·G·C 같은 아는 코드를 쳐 주세요!');
   useEffect(() => {
     if (phase !== 'done' || paused) return undefined;
     const id = setTimeout(() => (s.resume ? go('lesson', { ...s.resume, key: Date.now() }) : go('learn')), 2000 / s.panel.speed);
@@ -182,9 +187,9 @@ function Attend({ s, update, go, paused = false }) {
       <div className="row w100"><button className="iconbtn" aria-label="출석 화면 닫기" onClick={() => go('home')}>✕</button></div>
       <div className="tc">
         <h1>{phase === 'denied' ? '마이크를 쓸 수 없어요' : phase === 'fail' ? '소리가 잘 안 들려요' : '아는 코드를 쳐 주세요!'}</h1>
-        <div className="sub" style={{ marginTop: 6 }}>{phase === 'denied' ? '버튼으로 출석할 수 있어요' : phase === 'fail' ? '폰 가까이에서 코드를 한 번 더 연주해 볼까요?' : 'Em·G·C처럼 익숙한 코드면 돼요. 코드 소리가 2초 들리면 출석이에요.'}</div>
+        {phase === 'denied' && <div className="sub" style={{ marginTop: 6 }}>버튼으로 출석할 수 있어요</div>}
       </div>
-      <div className="grow"><Piki name={acc > 0.3 && phase === 'listen' ? 'yay' : 'listen'} size={220} /></div>
+      <div className="grow stage-say"><div className="bubble say" role="status" key={say}>{say}</div><Piki name={acc > 0.3 && phase === 'listen' ? 'yay' : 'listen'} size={190} /></div>
       {phase === 'listen' && (<>
         <svg width="132" height="132" viewBox="0 0 132 132" fill="none">
           <circle cx="66" cy="66" r={R} stroke="#FFE7B3" strokeWidth="10" />
@@ -194,7 +199,7 @@ function Attend({ s, update, go, paused = false }) {
         <b style={{ fontSize: 14, color: 'var(--od)' }}>{acc > 0 ? `듣고 있어요 · ${acc.toFixed(1)}초 / 2초` : '듣고 있어요'}</b>
         <button className="btn line" onClick={() => finish('manual')}>마이크 없이 출석하기</button>
       </>)}
-      {phase === 'ask' && <><div className="sub">마이크를 준비하고 있어요…</div><button className="btn line" onClick={() => finish('manual')}>마이크 없이 출석하기</button></>}
+      {phase === 'ask' && <><button className="btn line" onClick={() => finish('manual')}>마이크 없이 출석하기</button></>}
       {phase === 'fail' && (<>
         <button className="btn" onClick={retryInput}>다시 하기</button>
         <button className="btn line" onClick={() => finish('manual')}>건너뛰기</button>
@@ -282,7 +287,7 @@ function Course({ s, go, params }) {
             return (
               <button key={i} className={`card lesson tap${resume ? ' sel' : ''}`} onClick={() => go('lesson', { lesson: L.id, part: i, step: resume ? s.resume.step : 0, key: Date.now() })}>
                 <span className={`num${done ? ' done' : ''}`}>{done ? <img src={courseCheck} alt="완료" /> : i + 1}</span>
-                <span className="course-part-copy"><b className="course-part-title">파트 {i + 1} · {L.id !== 'song' && i === 1 ? '코드 잡기' : p.title}</b><span className="sub">{p.sub ? <>{p.sub}<br /></> : null}{resume ? '약 3분 · 이어서 하기' : done ? '완료 · 다시 해볼 수 있어요' : '약 3분'}</span></span>
+                <span className="course-part-copy"><b className="course-part-title">파트 {i + 1} · {p.title}</b><span className="sub">{p.sub ? <>{p.sub}<br /></> : null}{resume ? '약 3분 · 이어서 하기' : done ? '완료 · 다시 해볼 수 있어요' : '약 3분'}</span></span>
                 <img className="course-part-chevron" src={courseChevron} alt="" />
               </button>
             );
@@ -516,7 +521,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div className="panel-row"><span>속도</span><select value={s.panel.speed} onChange={(e) => set('speed', Number(e.target.value))}><option value="1">×1</option><option value="3">×3</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>곡·전환 연습 중 속도를 바꾸면 완료한 마디는 유지하고 현재 마디부터 다시 시작해요.</div>
       <div className="panel-row"><span>곡 판정</span><select value={s.panel.judge} onChange={(e) => set('judge', e.target.value)}><option value="mic">마이크 소리</option><option value="random">랜덤</option><option value="allok">모두 성공</option><option value="hard">전환 어려움</option></select></div>
-      <div className="panel-row"><span>자세 촬영 결과</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="self">스스로 확인 (판정 없음)</option><option value="real">사진으로 실제 판정</option><option value="sim">예시 결과 (흉내)</option></select></div>
+      <div className="panel-row"><span>자세 촬영 결과</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="real">사진으로 판정 (기본)</option><option value="self">스스로 확인</option><option value="sim">예시 결과 (흉내)</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>오늘 {today(s)} · 소리 기준값 {threshold()} · 코드 인식기 {ear.status()} · {ear.chord()||'코드 없음'}</div>
       <a href="/licenses/" target="_blank" rel="noreferrer">오픈소스 라이선스·해당 버전 소스</a>
       <button className="btn" onClick={close}>닫기</button>

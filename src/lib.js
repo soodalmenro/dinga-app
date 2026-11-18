@@ -22,7 +22,7 @@ const empty = () => ({
   songPractice: { last: null, count: 0, best: 0 }, // 곡 연습(가사·코드 화면) 결과
   ptab: 'review', // 연습 탭에서 마지막에 본 구분: review | transition | song
   // variant: 'idea' = 아이디어 반영(위젯·연주 중 자세 알림·같은 곡 챌린지), 'prd' = PRD 원본(연습 전 자세 촬영·친구 목록)
-  panel: { mood: 'auto', speed: 1, judge: 'mic', posture: 'self', dayShift: 0, pid: '', variant: 'idea', alert: 'auto', fresh: false },
+  panel: { mood: 'auto', speed: 1, judge: 'mic', posture: 'real', dayShift: 0, pid: '', variant: 'idea', alert: 'auto', fresh: true }, // fresh: 나갔다 다시 들어오면(새로고침) 처음부터(11/18). 평가 패널에서 끌 수 있다
 });
 
 const isRecord = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
@@ -94,7 +94,7 @@ export function load() {
     state.panel = { ...base.panel, ...(isRecord(raw.panel) ? raw.panel : {}) };
     for (const [key, options] of Object.entries({
       variant: ['idea', 'prd'], alert: ['auto', 'real', 'manual', 'off'],
-      judge: ['mic', 'random', 'allok', 'hard'], posture: ['self', 'real', 'sim'],
+      judge: ['mic', 'random', 'allok', 'hard'], posture: ['real', 'self', 'sim'],
       mood: ['auto', ...Object.keys(content.moodNames)],
     })) {
       if (!options.includes(state.panel[key])) state.panel[key] = base.panel[key];
@@ -102,7 +102,8 @@ export function load() {
     if (!Number.isFinite(state.panel.speed) || state.panel.speed <= 0) state.panel.speed = base.panel.speed;
     if (!Number.isInteger(state.panel.dayShift)) state.panel.dayShift = base.panel.dayShift;
     if (typeof state.panel.pid !== 'string') state.panel.pid = base.panel.pid;
-    state.panel.fresh = state.panel.fresh === true;
+    // 기록이 이미 있는 기기는 저장된 값만 따른다(키가 없으면 끔). 처음 여는 기기는 기본값(켬)으로 시작한다
+    state.panel.fresh = isRecord(raw.panel) && raw.panel.fresh === true;
     return state;
   } catch (e) {}
   return base;
@@ -165,7 +166,11 @@ export const lessonsFor = (s) => (s.panel.variant === 'idea' ? content.lessons.m
 // 자세 촬영(S7)은 레슨 첫 파트의 첫 연주 단계 직전에 한 번 끼워 보여 주며(Lesson.jsx) 번호를 차지하지 않는다.
 // 그래서 이전 버전에서 저장된 이어하기 위치가 그대로 맞는다. 복습·단독 전환(practiceOnly)에서는 찍지 않는다.
 export function partSteps(definition, variant, part, practiceOnly = false) {
-  return variant === 'idea' || practiceOnly ? definition.steps.filter((step) => step.type !== 'posture') : definition.steps;
+  const rest = definition.steps.filter((step) => step.type !== 'posture');
+  if (variant === 'idea' || practiceOnly) return rest;
+  // PRD 원본은 파트 맨 앞에서 자세를 찍는다(content.json에서 posture 자리가 바뀌어도 맨 앞)
+  const posture = definition.steps.find((step) => step.type === 'posture');
+  return posture ? [posture, ...rest] : rest;
 }
 export function remapResumeVariant(resume, from, to) {
   if (!resume || typeof resume !== 'object' || Array.isArray(resume)
@@ -424,12 +429,25 @@ function tone(freqs, step = 0.1) {
     });
   } catch (e) {}
 }
+// 곡 멜로디 한 음(작게, 부드러운 삼각파). delay·duration은 초
+function note(midi, duration, delay = 0) {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const o = actx.createOscillator(); const g = actx.createGain();
+    o.type = 'triangle'; o.frequency.value = 440 * 2 ** ((midi - 69) / 12);
+    const t0 = actx.currentTime + Math.max(0, delay); const end = t0 + Math.max(0.08, duration * 0.92);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, end);
+    o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(end + 0.02);
+  } catch (e) {}
+}
 const buzz = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
 export const sfx = {
   tap: () => buzz(8),
   ok: () => { tone([659, 988], 0.09); buzz(20); },
   done: () => { tone([523, 659, 784, 1047], 0.11); buzz([20, 40, 30]); },
   tick: () => tone([880], 0.04),
+  note,
   alert: () => buzz(200), // 자세 알림: 진동 1번, 소리 없음
 };
 

@@ -12,7 +12,7 @@ async function rehearse(browser, url) {
     await page.addInitScript(() => {
       navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('Denied', 'NotAllowedError'); };
     });
-    await page.goto(url);
+    await page.goto(url + '?fresh=0'); // 이 검사는 새로고침 뒤에도 기록이 남는지 본다
     await page.locator('.widget').waitFor();
     for (const pid of ['P1', 'P2']) {
       await panel();

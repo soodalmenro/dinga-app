@@ -20,14 +20,14 @@ const assert = require('node:assert/strict');
     await page.locator('.splash').waitFor({ state: 'detached' });
     for (let i = 0; i < 3; i++) await page.mouse.click(360, 18);
     await page.getByRole('button', { name: '파트 3 카메라 테스트 열기', exact: true }).click();
-    await page.getByRole('heading', { name: '첫 곡 · 완주', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Itsy Bitsy Spider · 완주', exact: true }).waitFor();
     const panel = await page.evaluate(() => JSON.parse(localStorage.getItem('dinga-v1')).panel);
     assert.notEqual(panel.judge, 'allok', 'shortcut must not leave fake judging on');
     assert.equal(panel.alert, 'auto');
     assert.equal(panel.speed, 1);
     await page.getByRole('button', { name: /바로 시작/ }).click();
     await page.locator('.palert').waitFor({ timeout: 7000 });
-    await page.waitForTimeout(4500); assert.equal(await page.locator('.coach video').count(), 1, 'camera permission taking four seconds must still show a preview'); assert.deepEqual(errors, []);
+    await page.waitForTimeout(4500); assert.equal(await page.locator('.coach video').count(), 0, 'mini camera removed: the cue is text only even when permission is slow'); assert.deepEqual(errors, []);
     console.log('PASS locked fresh course with saved Em resume → panel shortcut → part 3 → start → timed cue');
   } finally {
     await browser.close();

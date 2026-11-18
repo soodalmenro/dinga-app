@@ -4,7 +4,7 @@ async function open(browser,url,state={}){
  const page=await browser.newPage({viewport:{width:390,height:844}});
  await page.addInitScript(state=>{
   const d=new Date();const date=[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');
-  localStorage.setItem('dinga-v1',JSON.stringify({attendances:[{date,method:'manual'}],panel:{speed:4,alert:'off'},...state}));
+  localStorage.setItem('dinga-v1',JSON.stringify({attendances:[{date,method:'manual'}],panel:{speed:4,alert:'off',judge:'allok'},...state}));
   window.mediaTests={audioMode:'allow',audio:[],video:[],wake:[]};
   const acquire=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   navigator.mediaDevices.getUserMedia=constraints=>{
@@ -29,7 +29,7 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
   const browser=await chromium.launch({channel:process.env.QA_BROWSER_CHANNEL,args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
   try{
    const url='http://127.0.0.1:'+server.httpServer.address().port;
-   let page=await open(browser,url,{resume:{lesson:'em',part:0,step:1}});
+   let page=await open(browser,url,{resume:{lesson:'em',part:0,step:3}});
    try{
     await button(page,'이어서 연습하기 ›').click();await page.waitForFunction(async()=>(await import('/src/lib.js')).mic.state==='on');
     await page.waitForFunction(()=>window.mediaTests.audio.length>0,{},{timeout:2000});
@@ -51,13 +51,9 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
     await page.evaluate(()=>window.releaseRecoveryMic());await page.waitForTimeout(150);
     assert.equal(await page.evaluate(async()=>(await import('/src/lib.js')).mic.state),'idle');
     assert.ok(await page.evaluate(()=>window.mediaTests.audio.at(-1).getTracks().every(t=>t.readyState==='ended')));
-    await page.waitForFunction(()=>document.querySelector('video.eye')?.readyState>=2);
-    const oldCamera=await page.evaluate(()=>{const st=window.mediaTests.video.at(-1);window.oldRecoveryCamera=st;const t=st.getVideoTracks()[0];t.stop();t.dispatchEvent(new Event('ended'));return true;});
-    assert.ok(oldCamera);await button(page,'카메라 다시 켜기').waitFor();await button(page,'카메라 다시 켜기').click();
-    await page.waitForFunction(()=>document.querySelector('video.eye')?.readyState>=2);
-    await page.evaluate(()=>window.oldRecoveryCamera.dispatchEvent(new Event('inactive')));
-    assert.equal(await button(page,'카메라 다시 켜기').count(),0);
-    console.log('PASS lesson track/context loss, explicit resume, late retry cancellation and camera reconnection');
+    // 11/18 미니카메라 삭제: 자세 알림이 '실제 판정'이 아니면 레슨 중 카메라를 켜지 않는다(카메라 재연결은 pose-reliability가 본다)
+    await page.waitForTimeout(500);assert.equal(await page.evaluate(()=>window.mediaTests.video.length),0,'no camera stream during lesson play');
+    console.log('PASS lesson track/context loss, explicit resume, late retry cancellation, no lesson camera');
    }finally{await page.close();}
    page=await open(browser,url);
    try{
@@ -91,7 +87,7 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
     assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-log')).filter(e=>e.type==='song_start').length),2,'explicit simulation conversion starts a new attempt');
     console.log('PASS eight-bar no-mic recovery restarts with explicit simulated provenance');
    }finally{await page.close();}
-   page=await open(browser,url,{resume:{lesson:'em',part:0,step:1}});
+   page=await open(browser,url,{resume:{lesson:'em',part:0,step:3}});
    try{
     await button(page,'이어서 연습하기 ›').click();await page.waitForFunction(()=>window.mediaTests.wake.length>0);
     await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>window.wakeHidden||false});window.wakeHidden=true;document.dispatchEvent(new Event('visibilitychange'));});

@@ -12,7 +12,7 @@ async function open(browser,url,variant,step,patch={}){const context=await brows
  try{const url='http://127.0.0.1:'+server.httpServer.address().port;let failures=0;
  for(const kind of process.env.QA_SETTING_CASES?.split(',')||['idea-prd','prd-idea','active-variant','active-pid','song-lock','transition-lock','attendance-lock','setup-lock']){let p;
  try{
-  const from=kind==='prd-idea'?'prd':'idea',step=from==='prd'?2:1; p=await open(browser,url,from,step,kind==='attendance-lock'?{attendances:[]}:{});
+  const from=kind==='prd-idea'?'prd':'idea',step=from==='prd'?4:3; p=await open(browser,url,from,step,kind==='attendance-lock'?{attendances:[]}:{});
   const variant=()=>p.locator('.panel-row',{hasText:'화면 구성'}).locator('select');const pid=()=>p.getByPlaceholder('예: P1');
   if(kind.startsWith('active')){
    await p.getByRole('button',{name:/이어서 연습하기/}).click();await p.locator('.dots').waitFor();await panel(p);
@@ -32,7 +32,7 @@ async function open(browser,url,variant,step,patch={}){const context=await brows
    else await button(p,kind==='setup-lock'?'확인 마치기':'출석 화면 닫기').click();
    await panel(p);assert.equal(await pid().isEnabled(),true);assert.equal(await variant().isEnabled(),true);
   }else{
-   await panel(p);const to=from==='idea'?'prd':'idea';await variant().selectOption(to);const expected=to==='prd'?2:1;
+   await panel(p);const to=from==='idea'?'prd':'idea';await variant().selectOption(to);const expected=to==='prd'?4:3;
    await p.waitForTimeout(100);assert.deepEqual((await state(p)).resume,{lesson:'em',part:0,step:expected},'variant change preserves the same play step');
    assert.deepEqual((await state(p)).history,{});assert.equal((await state(p)).done.em[0],false);
    await pid().fill('P2');await p.waitForFunction(()=>JSON.parse(localStorage.getItem('dinga-v1')).panel.pid==='P2');assert.equal((await state(p)).panel.pid,'P2');await button(p,'닫기').click();await p.reload();

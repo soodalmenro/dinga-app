@@ -155,24 +155,11 @@
      "title": "준비",
      "steps": [
       {
-       "type": "posture"
-      },
-      {
        "type": "card",
        "img": "hi",
        "title": "기타를 편하게 안아요",
        "text": "의자에 앉아 기타 몸통을 오른쪽 허벅지에 올려요. 줄은 굵은 쪽이 6번, 가는 쪽이 1번이에요."
       },
-      {
-       "type": "play",
-       "text": "아는 코드를 천천히 네 번 연주해 보세요",
-       "showChord": false
-      }
-     ]
-    },
-    {
-     "title": "코드 만들기",
-     "steps": [
       {
        "type": "posture"
       },
@@ -193,7 +180,7 @@
      ]
     },
     {
-     "title": "소리 내기",
+     "title": "코드 연습",
      "steps": [
       {
        "type": "posture"
@@ -202,12 +189,20 @@
        "type": "play",
        "text": "천천히 한 번씩 쳐 보세요",
        "showChord": true
-      },
+      }
+     ]
+    },
+    {
+     "title": "박자 연습",
+     "steps": [
       {
-       "type": "beat"
+       "type": "posture"
       },
       {
        "type": "blind"
+      },
+      {
+       "type": "beat"
       }
      ]
     }
@@ -234,19 +229,6 @@
        "text": "손을 조금 넓게 벌려야 해요. 처음엔 소리가 안 나도 괜찮아요."
       },
       {
-       "type": "play",
-       "text": "아는 코드를 천천히 네 번 연주해 보세요",
-       "showChord": false
-      }
-     ]
-    },
-    {
-     "title": "코드 만들기",
-     "steps": [
-      {
-       "type": "posture"
-      },
-      {
        "type": "diagram"
       },
       {
@@ -257,16 +239,15 @@
      ]
     },
     {
-     "title": "소리 내기",
+     "title": "코드 연습",
      "steps": [
       {
        "type": "posture"
       },
       {
-       "type": "beat"
-      },
-      {
-       "type": "blind"
+       "type": "play",
+       "text": "천천히 한 번씩 쳐 보세요",
+       "showChord": true
       },
       {
        "type": "transition",
@@ -274,6 +255,20 @@
         "Em",
         "G"
        ]
+      }
+     ]
+    },
+    {
+     "title": "박자 연습",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "blind"
+      },
+      {
+       "type": "beat"
       }
      ]
     }
@@ -300,19 +295,6 @@
        "text": "가장 굵은 6번 줄은 빼고 5번 줄부터 내려쳐요."
       },
       {
-       "type": "play",
-       "text": "아는 코드를 천천히 네 번 연주해 보세요",
-       "showChord": false
-      }
-     ]
-    },
-    {
-     "title": "코드 만들기",
-     "steps": [
-      {
-       "type": "posture"
-      },
-      {
        "type": "diagram"
       },
       {
@@ -323,16 +305,15 @@
      ]
     },
     {
-     "title": "소리 내기",
+     "title": "코드 연습",
      "steps": [
       {
        "type": "posture"
       },
       {
-       "type": "beat"
-      },
-      {
-       "type": "blind"
+       "type": "play",
+       "text": "천천히 한 번씩 쳐 보세요",
+       "showChord": true
       },
       {
        "type": "transition",
@@ -340,6 +321,20 @@
         "G",
         "C"
        ]
+      }
+     ]
+    },
+    {
+     "title": "박자 연습",
+     "steps": [
+      {
+       "type": "posture"
+      },
+      {
+       "type": "blind"
+      },
+      {
+       "type": "beat"
       }
      ]
     }
@@ -446,11 +441,11 @@
  "liveGuides": {
   "wrist": {
    "title": "손목, 곧게 펴져 있나요?",
-   "text": "위 사진과 내 모습을 비교해 봐요"
+   "text": "왼손을 조금 높이고 손목을 펴 봐요"
   },
   "thumb": {
    "title": "엄지, 넥 뒤에 가볍게 있나요?",
-   "text": "위 사진과 내 모습을 비교해 봐요"
+   "text": "엄지를 넥 뒤에 가볍게 대 봐요"
   },
   "shoulder": {
    "title": "어깨, 올라가 있지 않나요?",
@@ -458,7 +453,7 @@
   },
   "all": {
    "title": "손목, 곧게 펴져 있나요?",
-   "text": "위 사진과 내 모습을 비교해 봐요"
+   "text": "왼손을 조금 높이고 손목을 펴 봐요"
   }
  },
  "poseThresholds": {
@@ -475,7 +470,7 @@
   "photoWristDeg": 30
  },
  "challenge": {
-  "title": "첫 곡"
+  "title": "Itsy Bitsy Spider"
  },
  "friendSamples": [
   {
@@ -535,6 +530,9 @@
       "text": "Em ↔ G, G ↔ C를 연습해요. 두 코드를 2마디씩 번갈아 8마디를 쳐 봐요."
      },
      {
+      "type": "posture"
+     },
+     {
       "type": "transition",
       "pair": [
        "Em",
@@ -580,7 +578,7 @@
   ]
  },
  "songPractice": {
-  "title": "첫 곡",
+  "title": "Itsy Bitsy Spider",
   "bpm": 80,
   "sections": [
    {
@@ -588,11 +586,11 @@
     "lines": [
      [
       [
-       "Em",
+       "G",
        ""
       ],
       [
-       "G",
+       "Em",
        ""
       ],
       [
@@ -600,7 +598,7 @@
        ""
       ],
       [
-       "Em",
+       "G",
        ""
       ]
      ]
@@ -611,22 +609,22 @@
     "lines": [
      [
       [
-       "Em",
-       "오늘도"
+       "G",
+       "The itsy bitsy spider"
       ],
       [
-       "G",
-       "작은 손으로"
+       "Em",
+       "went up the water spout"
       ]
      ],
      [
       [
        "C",
-       "첫 줄을"
+       "Down came the rain and"
       ],
       [
-       "Em",
-       "울려 봐요"
+       "G",
+       "washed the spider out"
       ]
      ]
     ]
@@ -637,25 +635,227 @@
      [
       [
        "Em",
-       "서툴러도"
+       "Out came the sun and"
       ],
       [
-       "G",
-       "괜찮아"
+       "C",
+       "dried up all the rain"
       ]
      ],
      [
       [
-       "C",
-       "한 걸음씩"
+       "G",
+       "And the itsy bitsy spider"
       ],
       [
-       "Em",
-       "가는 거야"
+       "G",
+       "went up the spout again"
       ]
      ]
     ]
    }
+  ],
+  "melody": [
+   null,
+   null,
+   null,
+   null,
+   [
+    [
+     67,
+     0.5
+    ],
+    [
+     67,
+     0.5
+    ],
+    [
+     67,
+     1
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     71,
+     0.5
+    ],
+    [
+     71,
+     1
+    ]
+   ],
+   [
+    [
+     71,
+     0.5
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     67,
+     1
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     71,
+     0.5
+    ],
+    [
+     67,
+     1
+    ]
+   ],
+   [
+    [
+     71,
+     1
+    ],
+    [
+     71,
+     0.5
+    ],
+    [
+     72,
+     0.5
+    ],
+    [
+     74,
+     2
+    ]
+   ],
+   [
+    [
+     74,
+     0.5
+    ],
+    [
+     72,
+     0.5
+    ],
+    [
+     71,
+     1
+    ],
+    [
+     72,
+     0.5
+    ],
+    [
+     74,
+     0.5
+    ],
+    [
+     71,
+     1
+    ]
+   ],
+   [
+    [
+     67,
+     1
+    ],
+    [
+     67,
+     0.5
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     71,
+     2
+    ]
+   ],
+   [
+    [
+     71,
+     0.5
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     67,
+     1
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     71,
+     0.5
+    ],
+    [
+     67,
+     1
+    ]
+   ],
+   [
+    [
+     62,
+     0.5
+    ],
+    [
+     62,
+     0.5
+    ],
+    [
+     67,
+     0.5
+    ],
+    [
+     67,
+     0.5
+    ],
+    [
+     67,
+     0.5
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     71,
+     1
+    ]
+   ],
+   [
+    [
+     71,
+     0.5
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     67,
+     1
+    ],
+    [
+     69,
+     0.5
+    ],
+    [
+     71,
+     0.5
+    ],
+    [
+     67,
+     1
+    ]
+   ]
   ]
  },
  "chordNotes": {

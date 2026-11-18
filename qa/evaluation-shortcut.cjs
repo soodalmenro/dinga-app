@@ -20,7 +20,7 @@ const assert = require('node:assert/strict');
     await page.locator('.splash').waitFor({ state: 'detached' });
     for (let i = 0; i < 3; i++) await page.mouse.click(360, 18);
     await page.getByRole('button', { name: '파트 3 카메라 테스트 열기', exact: true }).click();
-    await page.getByRole('heading', { name: '첫 곡 · 완주', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Itsy Bitsy Spider · 완주', exact: true }).waitFor();
     const panel = await page.evaluate(() => JSON.parse(localStorage.getItem('dinga-v1')).panel);
     assert.notEqual(panel.judge, 'allok', 'shortcut must not leave fake judging on');
     assert.equal(panel.alert, 'auto');

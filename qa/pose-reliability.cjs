@@ -12,7 +12,7 @@ async function check(browser, url) {
       localStorage.setItem('dinga-v1', JSON.stringify({
         panel: { alert: 'real' },
         attendances: [{ date: day, method: 'manual' }],
-        resume: { lesson: 'em', part: 0, step: 1 },
+        resume: { lesson: 'em', part: 0, step: 3 },
       }));
       window.poseTests = { initializations: 0, sends: 0, stopped: 0, failSend: false };
       window.Pose = class {

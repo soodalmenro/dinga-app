@@ -29,11 +29,11 @@ async function inspect(browser, url, { width, height, song = false, enlarged = f
     assert.equal(await dialog.evaluate(node => node === document.activeElement), true);
     if (legacy) {
       assert.equal(await page.locator('.course-parts').count(), 0);
-      await dialog.getByText('파트 2 · 코드 만들기', { exact: true }).waitFor();
+      await dialog.getByText('파트 2 · 코드 연습', { exact: true }).waitFor();
     } else {
       assert.equal(await page.locator('.course-part-mascot img').count(), 1, 'course modal includes its Figma character decoration');
       assert.ok(await page.locator('.course-part-mascot img').evaluate(img => img.complete && img.naturalWidth > 0 && !img.src.includes('figma.com')));
-      if (!song) await dialog.getByText('파트 2 · 코드 잡기', { exact: true }).waitFor();
+      if (!song) await dialog.getByText('파트 2 · 코드 연습', { exact: true }).waitFor();
       else assert.equal(await dialog.locator('.course-part-chords .pill').count(), 3);
       if (enlarged) await page.addStyleTag({ content: '.course-parts h1,.course-parts b,.course-parts .sub { font-size:24px!important }' });
       await page.waitForTimeout(250);

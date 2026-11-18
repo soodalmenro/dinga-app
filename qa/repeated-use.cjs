@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
       page.on('pageerror', error => errors.push(error.message));
       await page.addInitScript(() => {
         const d = new Date(); const date = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
-        localStorage.setItem('dinga-v1', JSON.stringify({ attendances: [{date,method:'manual'}], panel: { speed: 20, judge: 'allok', alert: 'real' }, resume: {lesson:'em',part:0,step:1} }));
+        localStorage.setItem('dinga-v1', JSON.stringify({ attendances: [{date,method:'manual'}], panel: { speed: 20, judge: 'allok', alert: 'real' }, resume: {lesson:'em',part:0,step:3} }));
         window.soak = { streams: [], contexts: [], locks: [], sends: 0, listeners: [] };
         const observe = target => {
           const records = new Map(); window.soak.listeners.push(records);
