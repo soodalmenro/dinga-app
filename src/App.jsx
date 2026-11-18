@@ -516,7 +516,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div className="panel-row"><span>속도</span><select value={s.panel.speed} onChange={(e) => set('speed', Number(e.target.value))}><option value="1">×1</option><option value="3">×3</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>곡·전환 연습 중 속도를 바꾸면 완료한 마디는 유지하고 현재 마디부터 다시 시작해요.</div>
       <div className="panel-row"><span>곡 판정</span><select value={s.panel.judge} onChange={(e) => set('judge', e.target.value)}><option value="mic">마이크 소리</option><option value="random">랜덤</option><option value="allok">모두 성공</option><option value="hard">전환 어려움</option></select></div>
-      <div className="panel-row"><span>자세 촬영 결과</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="real">사진으로 실제 판정</option><option value="sim">시뮬레이션</option><option value="self">참가자가 직접 선택</option></select></div>
+      <div className="panel-row"><span>자세 촬영 결과</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="self">스스로 확인 (판정 없음)</option><option value="real">사진으로 실제 판정</option><option value="sim">예시 결과 (흉내)</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>오늘 {today(s)} · 소리 기준값 {threshold()} · 코드 인식기 {ear.status()} · {ear.chord()||'코드 없음'}</div>
       <a href="/licenses/" target="_blank" rel="noreferrer">오픈소스 라이선스·해당 버전 소스</a>
       <button className="btn" onClick={close}>닫기</button>

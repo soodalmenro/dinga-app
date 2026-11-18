@@ -247,8 +247,8 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
     return { straight, bent, tilt }; });
   ok('판정 계산: 손목 곧음 → 문제 없음 / 90도 꺾임 → 손목 / 어깨 기울어짐 → 어깨', pj.straight.length === 0 && pj.bent.includes('wrist') && pj.tilt.includes('shoulder'), JSON.stringify(pj));
   await panel(); await btn(p, '지금 띄우기').click(); const t1 = Date.now(); await p.locator('.palert').waitFor({ timeout: 8000 }).catch(() => {});
-  ok('P1 진행자가 띄움: 알림 한 줄 (손목)', await p.locator('.palert').count() === 1 && (await p.locator('.palert').innerText()).includes('손목이 꺾였어요'));
-  ok('P1: 알림과 함께 카메라 창 + 교정 그림', await p.locator('.grow .coach-card video').count() === 1 && await p.locator('.coach-card img[alt="손목을 곧게 펴요"]').count() === 1 && await p.locator('.pip.coach').count() === 0);
+  ok('P1 진행자가 띄움: 알림 한 줄 (손목)', await p.locator('.palert').count() === 1 && (await p.locator('.palert').innerText()).includes('손목, 곧게 펴져 있나요?'));
+  ok('P1: 알림과 함께 카메라 창 + 교정 그림', await p.locator('.grow .coach-card video').count() === 1 && await p.locator('.coach-card img[alt="왼손을 높게, 손목은 곧게"]').count() === 1 && await p.locator('.pip.coach').count() === 0);
   const t2 = Date.now(); await p.locator('.palert').waitFor({ state: 'detached', timeout: 9000 }).catch(() => {}); const shown = Date.now() - t2;
   ok('P1: 알림과 카메라 창은 약 3초 뒤 사라짐', await p.locator('.palert').count() === 0 && await p.locator('.pip').count() === 0 && shown > 2000 && shown < 6000, `${t2 - t1}ms 뒤 뜸, ${shown}ms 보임`);
   console.log(`  (알림: 누른 뒤 ${t2 - t1}ms에 뜸, ${shown}ms 동안 보임)`);

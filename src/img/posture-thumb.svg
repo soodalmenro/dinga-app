@@ -1,0 +1,7 @@
+<svg width="176" height="106" viewBox="0 0 176 106" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- 교정 그림(엄지). 선은 어쿠스틱 체이서 사진을 보고 따라 그렸다 (acousticchaser.tistory.com/151). 피그마 Hi-Fi 08 P1-2 아래 줄 -->
+<rect width="176" height="106" fill="#FFF9EE"/>
+<g transform="translate(44 8) scale(0.08577)" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M135,0 L335,235 M235,0 L400,215" stroke="#302F46" stroke-width="13"/><path d="M452,318 L640,769 M500,300 L790,769" stroke="#302F46" stroke-width="13"/><path d="M372,305 Q380,238 440,232 L535,240 Q558,252 540,268 L470,300" stroke="#3FBF6F" stroke-width="22"/><path d="M505,300 Q560,270 592,275 Q612,290 598,305 L528,338" stroke="#302F46" stroke-width="13"/><path d="M528,348 Q600,300 640,300 Q672,318 662,340 L562,402" stroke="#302F46" stroke-width="13"/><path d="M566,446 Q640,380 682,370 Q712,390 702,415 L602,500" stroke="#302F46" stroke-width="13"/><path d="M682,462 Q730,410 752,410 Q782,430 772,455 L700,492" stroke="#302F46" stroke-width="13"/><path d="M372,305 Q340,400 335,470 Q330,600 190,769" stroke="#302F46" stroke-width="13"/><path d="M602,500 Q690,520 680,570 Q640,680 600,769" stroke="#302F46" stroke-width="13"/></g>
+<circle cx="123" cy="17" r="8" fill="#3FBF6F"/><path d="M119.5 17l2.5 2.5 4.5-5" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="88" y="94" text-anchor="middle" font-family="Pretendard, 'Noto Sans KR', sans-serif" font-size="11" font-weight="800" fill="#302F46">엄지는 넥 뒤에 가볍게</text>
+</svg>

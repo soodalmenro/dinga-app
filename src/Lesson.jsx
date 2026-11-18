@@ -7,6 +7,7 @@ import { Song } from './Song.jsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { content, mic, makeOnsetDetector, today, streak, sfx, logEvent , lessonsFor, partSteps } from './lib.js';
 import { PostureCoach } from './SongPosture.jsx';
+import { postureCopy } from './PostureReminder.jsx';
 import { checkPosture, loadPostureCheck, POSTURE_ITEMS } from './postureCheck.js';
 import { Piki, Chord, Modal, Progress, Sparkles, Confetti } from './ui.jsx';
 import { initPose, watchPosture, clearBaseline } from './pose.js';
@@ -47,7 +48,23 @@ const usableCaptureFrame = (video) => video?.readyState >= 2
 
 // 자세 가이드 선(피그마 14 · S7 · 15): 카메라 화면 위에 상체·기타 윤곽을 흐린 점선으로 깔고
 // 어깨선과 코드 잡는 팔 선을 그린다. 틀에 맞춰 앉게 돕는 그림이며 실제 관절을 찾아 그린 선은 아니다.
+// 윤곽은 바른 자세 참고 사진을 보고 따라 그린 선이다(GUIDE_OUTLINE).
 // mode: 'pre' 촬영 전(라벨 있음) | 'count' 3초 카운트(더 흐리게) | 'result' 결과(부위별 초록/주황)
+const GUIDE_OUTLINE = [
+  'M450,15 Q470,112 560,125 Q645,115 662,25',
+  'M450,15 Q330,35 270,62 Q150,110 72,168 L98,208 L165,232',
+  'M662,25 Q760,70 800,140 Q830,210 842,300',
+  'M748,372 L812,352 M842,300 L850,335',
+  'M40,200 Q110,250 190,318 M35,255 Q110,330 185,425',
+  'M190,318 Q250,300 300,345 Q335,365 325,380 Q290,400 300,430 Q250,460 195,440 Z',
+  'M160,228 Q250,270 330,240 Q420,180 478,228 Q540,330 548,440 Q545,540 480,592 Q380,560 300,572 Q180,640 120,690 Q40,680 20,620 Q10,470 70,315 Q110,260 160,228',
+  'M320,395 m-56,0 a56,56 0 1,0 112,0 a56,56 0 1,0 -112,0',
+  'M372,345 L1025,185 L1025,265 L376,415 Z',
+  'M878,205 Q905,170 935,195 Q990,215 1000,250 Q1030,275 1012,305 Q960,330 930,350 Q870,370 842,335 Q815,280 830,240 Z',
+  'M812,352 Q830,340 845,338 M905,385 Q915,365 925,352',
+  'M215,769 Q240,640 300,590 Q420,575 520,600'
+];
+
 function PostureGuide({ mode, res }) {
   const result = mode === 'result';
   const tone = (key) => (!result || !res || !res[key] ? '#fff' : res[key] === 'ok' ? '#3FBF6F' : '#FF9A3D');
@@ -60,25 +77,27 @@ function PostureGuide({ mode, res }) {
   return (
     <svg className="poseguide" viewBox={result ? '0 20 335 300' : '0 0 335 449'} preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       {!result && <rect x="30" y="30" width="275" height="412" rx="120" fill="none" stroke="#fff" strokeOpacity="0.9" strokeWidth="2" strokeDasharray="8 6" />}
-      <circle cx="178" cy="87" r="32" {...faint} />
-      <path d="M112 177C112 158 132 150 178 150C224 150 244 158 244 177V420M112 177L96 420" {...faint} />
-      <ellipse cx="170" cy="292" rx="40" ry="34" {...faint} /><ellipse cx="210" cy="322" rx="62" ry="50" {...faint} />
-      <path d="M150 276L34 222M150 292L40 244" {...faint} />
+      <circle cx="178" cy="100" r="34" {...faint} />
+      {/* 바른 자세 윤곽: 참고 사진(acousticchaser.tistory.com/151, "왼손을 앞으로 내밀어 준다")을 보고 따라 그린 선.
+          화면이 거울처럼 좌우가 뒤집혀 보이므로 선도 뒤집어서 깐다 */}
+      <g transform="translate(316.4 159.5) scale(-0.269 0.269)" fill="none" stroke="#fff" strokeOpacity={mode === 'count' ? 0.3 : 0.55} strokeWidth="7" strokeLinecap="round" strokeLinejoin="round">
+        {GUIDE_OUTLINE.map((d) => <path key={d} d={d} />)}
+      </g>
       <g fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" opacity={mode === 'count' ? 0.55 : 1}>
         <path d="M112 177H244" stroke={tone('shoulder')} />
-        <path d="M112 177L90 296L68 253" stroke={tone('wrist')} />
-        <path d="M68 253L62 229" stroke={tone('thumb')} />
+        <path d="M112 177L98 262L80 250" stroke={tone('wrist')} />
+        <path d="M80 250L72 214" stroke={tone('thumb')} />
         <circle cx="112" cy="177" r="6" fill={tone('shoulder')} stroke="none" /><circle cx="244" cy="177" r="6" fill={tone('shoulder')} stroke="none" />
-        <circle cx="90" cy="296" r="5" fill={tone('wrist')} stroke="none" /><circle cx="68" cy="253" r="7" fill={tone('wrist')} stroke="none" />
-        <circle cx="62" cy="229" r="5.5" fill={tone('thumb')} stroke="none" />
+        <circle cx="98" cy="262" r="5" fill={tone('wrist')} stroke="none" /><circle cx="80" cy="250" r="7" fill={tone('wrist')} stroke="none" />
+        <circle cx="72" cy="214" r="5.5" fill={tone('thumb')} stroke="none" />
       </g>
       {mode === 'pre' && <>
-        <path d="M30 313H150" stroke="#FFC53D" strokeWidth="2" strokeDasharray="5 4" />
-        {tag(178, 160, '어깨: 양쪽 높이를 같게')}{tag(50, 208, '엄지')}{tag(140, 248, '손목: 꺾지 않고 곧게')}
-        <g><rect x="34" y="321" width="112" height="22" rx="11" fill="#FFC53D" /><text x="90" y="336" textAnchor="middle" fontSize="11" fontWeight="800" fill="#302F46">왼손은 이 선보다 위</text></g>
+        <path d="M30 268H250" stroke="#FFC53D" strokeWidth="2" strokeDasharray="5 4" />
+        {tag(196, 150, '어깨: 힘 빼고 양쪽 높이 같게')}{tag(106, 196, '엄지: 넥 뒤, 검지 맞은편')}{tag(250, 232, '손목: 꺾지 않고 곧게')}
+        <g><rect x="30" y="276" width="150" height="22" rx="11" fill="#FFC53D" /><text x="105" y="291" textAnchor="middle" fontSize="11" fontWeight="800" fill="#302F46">왼손은 이 선(사운드홀)보다 위</text></g>
         <text x="167" y="430" textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">선에 맞춰 상체와 기타를 넣어요</text>
       </>}
-      {result && res && <>{res.shoulder && tag(190, 160, `어깨 ${word('shoulder')}`, 'shoulder')}{res.thumb && tag(62, 205, `엄지 ${word('thumb')}`, 'thumb')}{res.wrist && tag(40, 278, `손목 ${word('wrist')}`, 'wrist')}</>}
+      {result && res && <>{res.shoulder && tag(190, 160, `어깨 ${word('shoulder')}`, 'shoulder')}{res.thumb && tag(62, 196, `엄지 ${word('thumb')}`, 'thumb')}{res.wrist && tag(48, 280, `손목 ${word('wrist')}`, 'wrist')}</>}
     </svg>
   );
 }
@@ -220,7 +239,7 @@ function Posture({ lesson, s, update, next, speed, running }) {
     const warn = keys.find((k) => res[k] === 'warn');
     return (<>
       <div className="cam" style={{ flex: 'none', height: 220 }}>{shot ? <img src={shot} alt="" /> : <div className="msg">방금 찍은 모습</div>}{real ? <PostureMarks check={check} w={shotSize?.w} h={shotSize?.h} /> : <PostureGuide mode="result" res={res} />}</div>
-      {real ? <div className="sub">{check ? '사진 한 장으로 본 참고 결과예요. 가려진 곳은 확인 어려움으로 보여요.' : '자세를 살펴보지 못했어요. 다시 찍거나 그대로 연습을 시작해도 돼요.'}</div> : s.panel.posture !== 'sim' ? <div className="sub">가이드와 비교해서 직접 골라 주세요</div> : <div className="sub">연습용 예시 결과예요. 실제 자세를 본 결과는 아니에요.</div>}
+      {real ? <div className="sub">{check ? '사진 한 장으로 본 참고 결과예요. 가려진 곳은 확인 어려움으로 보여요.' : '자세를 살펴보지 못했어요. 다시 찍거나 그대로 연습을 시작해도 돼요.'}</div> : s.panel.posture !== 'sim' ? <div className="sub">사진과 선을 비교해 보고 직접 골라 주세요</div> : <div className="sub">연습용 예시 결과예요. 실제 자세를 본 결과는 아니에요.</div>}
       {keys.map((k) => (
         <div key={k} className={`card row between${k === focus ? ' sel' : ''}`} style={{ padding: '12px 16px' }}>
           <div className="row"><b>{content.postureTips[k].name}</b>{k === focus && <span className="cap">이번 레슨의 중심</span>}</div>
@@ -477,6 +496,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
     return () => window.removeEventListener('dinga-posedebug', sync);
   }, []);
   const [alertKind, setAlertKind] = useState(null);
+  const [alertHow, setAlertHow] = useState('timed'); // timed | manual | real. 실제 판정일 때만 단정하는 문구를 쓴다
   const alerts = useRef({ n: 0, last: 0, timed: false });
   const alertTimer = useRef(null);
   const liveRef = useRef(live); liveRef.current = live && !suspended;
@@ -484,7 +504,7 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   const fire = (kind, how, value) => {
     if (!liveRef.current) return;
     alerts.current.n += 1; alerts.current.last = performance.now();
-    setAlertKind(kind); sfx.alert();
+    setAlertKind(kind); setAlertHow(how); sfx.alert();
     logEvent('posture_alert', { how, kind, value: value == null ? undefined : Math.round(value) });
     clearTimeout(alertTimer.current);
     alertTimer.current = setTimeout(() => setAlertKind(null), 3000);
@@ -645,10 +665,10 @@ export default function Lesson({ s, update, target, go, paused = false }) {
   // 자세 알림 3초 동안 캐릭터 자리에 카메라 창과 교정 그림을 크게 보여 준다(피그마 P1, 11/18 수정: 오른쪽 위 작은 창 → 캐릭터 자리)
   const coach = live && alertKind && cam === 'on' ? <PostureCoach stream={camStream} cam={cam} kind={alertKind} /> : null;
   const props = { step, lesson, chord, next, micOn, speed, s, update, running: !suspended, retryEar: microphone.retryMic, coach };
-  const al = alertKind && (content.liveAlerts[alertKind] || content.liveAlerts.all);
+  const al = alertKind && postureCopy(alertKind, alertHow);
   return (<>
     {idea && <video ref={eye} className="eye" playsInline muted />}
-    {al && <div className="palert" role="status"><i>!</i><div><b>{al.title}</b><small>{al.text}</small></div></div>}
+    {al && <div className="palert" role="status"><i>{alertHow === 'real' ? '!' : '?'}</i><div><b>{al.title}</b><small>{al.text}</small></div></div>}
     {debugOn && live && cam === 'on' && mode === 'real' && <PoseDebug stream={camStream} data={poseDebug} onCalibrate={() => (watcher.current ? watcher.current.calibrate(3000) : Promise.resolve(null))} onClear={clearBaseline} />}
     <div className="screen" key={idx}>
       <div className="row">

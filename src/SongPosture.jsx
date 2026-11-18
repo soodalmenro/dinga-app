@@ -1,17 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { content, sfx } from './lib.js';
-import wristFix from './img/posture-wrist.svg';
+import { PostureFix, postureCopy } from './PostureReminder.jsx';
 
 // place: 'stage' = 캐릭터 자리에 크게(레슨 연주 단계), 'center' = 화면 가운데에 겹쳐서(곡 연습)
 export function PostureCoach({ stream, cam, kind, onReady, place = 'stage' }) {
   const v = useRef(null);
   useEffect(() => { if (v.current && stream.current) { v.current.srcObject = stream.current; v.current.play().catch(() => {}); } }, [cam]);
-  // 피그마에 그려진 교정 그림은 손목 한 가지다(209:59, 캡션 포함). 다른 부위는 문구만 보여 준다.
-  const drawn = kind === 'wrist' || kind === 'all';
+  // 교정 그림: 손목 · 엄지 · 어깨(PostureReminder.jsx). 그림이 없는 부위는 문구
   return (
     <div className={`coach coach-card ${place}`} aria-hidden="true">
       <div className="pip-cam">{cam === 'on' ? <video ref={v} playsInline muted onLoadedData={onReady} /> : null}<span>내 모습</span></div>
-      <div className="pip-fix">{drawn ? <img src={wristFix} alt={content.liveFixes.wrist} /> : <b>{content.liveFixes[kind]}</b>}</div>
+      <div className="pip-fix"><PostureFix kind={kind} /></div>
     </div>
   );
 }
@@ -69,6 +68,6 @@ export function SongPosture({ active }) {
     return () => clearTimeout(timer);
   }, [visible, active, previewReady, cam]);
   if (!active || !visible) return null;
-  return <><div className="palert" role="status"><i>!</i><div><b>{content.liveAlerts.wrist.title}</b><small>{cam === 'failed' ? '카메라 없이 문구로만 알려요' : previewReady ? content.liveAlerts.wrist.text : '카메라를 준비하고 있어요'}</small></div></div>
+  return <><div className="palert" role="status"><i>?</i><div><b>{postureCopy('wrist', 'timed').title}</b><small>{cam === 'failed' ? '카메라 없이 문구로만 알려요' : previewReady ? postureCopy('wrist', 'timed').text : '카메라를 준비하고 있어요'}</small></div></div>
     {cam === 'on' && <PostureCoach place="center" stream={stream} cam={cam} kind="wrist" onReady={() => { clearTimeout(cameraTimeout.current); setPreviewReady(true); }} />}</>;
 }
