@@ -1,3 +1,4 @@
+import { sameChord } from './chordMatch.js';
 // Match new musical evidence to the original attack, never to a later beat.
 export function createGuitarHitGate({onHit,target=null,snapshot}={}) {
   let armed=true,pending=null,last=-Infinity,valley=Infinity,lastAttack=-Infinity;
@@ -19,7 +20,7 @@ export function createGuitarHitGate({onHit,target=null,snapshot}={}) {
       const o=observation;
       if(!o?.usable||!o.chord||!Number.isFinite(o.sourceAt)||o.sourceAt<pending.at+200||o.sourceAt>at||at-o.sourceAt>1000||o.stableMs<350)return;
       const done=pending;pending=null;
-      if(done.target&&o.chord!==done.target)return;
+      if(done.target&&!sameChord(o.chord,done.target))return;
       onHit(done.at,done.level,done.slot,{chord:o.chord,sourceAt:o.sourceAt,version:'chordino-0.6.0'});
     },
   };

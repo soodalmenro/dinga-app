@@ -6,7 +6,7 @@ const ds = (off) => { const d = new Date(); d.setDate(d.getDate() + off); const 
 let lastPage;
 let VARIANT = 'prd'; // A·B는 PRD 원본 흐름, C는 아이디어 반영 흐름
 // UI flow checks explicitly select simulation; actual audio/WASM has independent tests.
-async function mk(b) { const c = await b.newContext({ viewport: { width: 375, height: 812 } }); await c.addInitScript((v) => { if (!localStorage.getItem('dinga-v1')) localStorage.setItem('dinga-v1', JSON.stringify({ panel: { variant: v,judge:'allok',alert:'auto' } })); }, VARIANT); const p = await c.newPage(); lastPage = p; p.on('dialog', dialog => dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss()); p.errs = []; p.on('pageerror', (e) => p.errs.push(e.message)); return p; }
+async function mk(b) { const c = await b.newContext({ viewport: { width: 375, height: 812 } }); await c.addInitScript((v) => { if (!localStorage.getItem('dinga-v1')) localStorage.setItem('dinga-v1', JSON.stringify({ panel: { variant: v,judge:'allok',alert:'auto',posture:'sim' } })); }, VARIANT); const p = await c.newPage(); lastPage = p; p.on('dialog', dialog => dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss()); p.errs = []; p.on('pageerror', (e) => p.errs.push(e.message)); return p; }
 const st = (p) => p.evaluate(() => JSON.parse(localStorage.getItem('dinga-v1')));
 const setSt = async (p, patch) => { await p.evaluate((patch) => { const base = JSON.parse(localStorage.getItem('dinga-v1')); const s = { ...base, ...patch, panel: { ...base.panel, ...(patch.panel || {}) } }; localStorage.setItem('dinga-v1', JSON.stringify(s)); }, patch); await p.reload(); await p.waitForTimeout(700); };
 const txt = (p) => p.evaluate(() => document.body.innerText);
@@ -247,7 +247,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('판정 계산: 손목 곧음 → 문제 없음 / 90도 꺾임 → 손목 / 어깨 기울어짐 → 어깨', pj.straight.length === 0 && pj.bent.includes('wrist') && pj.tilt.includes('shoulder'), JSON.stringify(pj));
   await panel(); await btn(p, '지금 띄우기').click(); const t1 = Date.now(); await p.locator('.palert').waitFor({ timeout: 8000 }).catch(() => {});
   ok('P1 진행자가 띄움: 알림 한 줄 (손목)', await p.locator('.palert').count() === 1 && (await p.locator('.palert').innerText()).includes('손목이 꺾였어요'));
-  ok('P1: 알림과 함께 카메라 창 + 교정 그림', await p.locator('.pip.coach video').count() === 1 && await p.locator('.pip.coach img[alt="손목을 곧게 펴요"]').count() === 1);
+  ok('P1: 알림과 함께 카메라 창 + 교정 그림', await p.locator('.grow .coach-card video').count() === 1 && await p.locator('.coach-card img[alt="손목을 곧게 펴요"]').count() === 1 && await p.locator('.pip.coach').count() === 0);
   const t2 = Date.now(); await p.locator('.palert').waitFor({ state: 'detached', timeout: 9000 }).catch(() => {}); const shown = Date.now() - t2;
   ok('P1: 알림과 카메라 창은 약 3초 뒤 사라짐', await p.locator('.palert').count() === 0 && await p.locator('.pip').count() === 0 && shown > 2000 && shown < 6000, `${t2 - t1}ms 뒤 뜸, ${shown}ms 보임`);
   console.log(`  (알림: 누른 뒤 ${t2 - t1}ms에 뜸, ${shown}ms 동안 보임)`);
@@ -283,6 +283,8 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await p.getByText('완주하기', { exact: true }).click(); await p.waitForTimeout(300); t = await txt(p);
   ok('04-1 완주하기 팝업: 전환 연습 · 박자 맞추기 · 완주', ['파트 1 · 전환 연습', '파트 2 · 박자 맞추기', '파트 3 · 완주', '첫 곡을 끝까지 치기'].every((x) => t.includes(x)), t.slice(-200));
   await p.getByText('파트 1 · 전환 연습').click(); await p.waitForTimeout(600); await btn(p, '다음').click(); await p.waitForTimeout(800); t = await txt(p);
+  ok('완주하기 첫 파트도 첫 연주 앞에 자세 촬영(S7, 전체 자세)', t.includes('자세 확인') && t.includes('전체 자세'), t.slice(0, 80));
+  await btn(p, '건너뛰기').click(); await p.waitForTimeout(800); t = await txt(p);
   ok('레슨 안 전환 단계도 8마디 판 화면(09)', t.includes('코드 전환 연습') && t.includes('Em ↔ G') && t.includes('템포') && await p.locator('.bars .bar').count() === 8, t.slice(0, 100));
   await p.waitForFunction(() => document.body.innerText.includes('G ↔ C'), null, { timeout: 40000 });
   ok('전환 8마디가 끝나면 다음 단계(G ↔ C)로', await p.locator('.bars .bar').count() === 8);

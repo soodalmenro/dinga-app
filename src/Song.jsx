@@ -13,7 +13,7 @@ const SONG = content.songChart.bars;
 const pairBars = (p) => [p[0], p[0], p[1], p[1], p[0], p[0], p[1], p[1]];
 const MARK = { ok: '✓', late: '늦음', none: '–' };
 
-export function Song({ s, update, go, params, microphone, paused = false, restartCurrentBar = false }) {
+export function Song({ s, update, go, params, microphone, paused = false, restartCurrentBar = false, coach = null }) {
   const pair = params && params.pair; const BARS = pair ? pairBars(pair) : SONG; const emb = params && params.onDone; // emb = 레슨 안 전환 단계
   const [tempo, setTempo] = useState(80);
   const [phase, setPhase] = useState('wait'); // wait | play
@@ -135,7 +135,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
           return <div key={i} className={`bar ${r || ''}${now ? ' now' : ''}`}><b>{c}</b><small>{r ? MARK[r] : now ? '●○○○'.split('').map((_, k) => (k === beat ? '●' : '○')).join('') : ''}</small></div>;
         })}
       </div>
-      <div className="grow"><Piki name="play" size={emb ? 110 : 170} /></div>
+      <div className="grow">{coach || <Piki name="play" size={emb ? 110 : 170} />}</div>
       {phase === 'wait' && micOn === false && <button className="btn" onClick={startManual}>시작하기</button>}
       {phase === 'wait' && micOn === null && !inputLost && !emb && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}
       <div className="card">
@@ -216,7 +216,7 @@ export function Report({ s, go }) {
       <div className="col" style={{ gap: 8 }}>
         <b style={{ fontSize: 13 }}>마디별 결과</b>
         <div className="minibars">{last.bars.map((r, i) => <div key={i} className={`bar ${r}`}><b>{BARS[i]}</b><small>{MARK[r]}</small></div>)}</div>
-        <div className="row sub" style={{ fontSize: 11, gap: 12 }}><span>✓ 박자 맞음</span><span>늦음 = 전환 늦음</span><span>– 소리 안 들림</span></div>
+        <div className="row sub" style={{ fontSize: 11, gap: 12 }}><span>✓ 박자 맞음</span><span>늦음 = 전환 늦음</span><span>{last.judge === 'mic' ? '– 코드 확인 안 됨' : '– 소리 안 들림'}</span></div>
       </div>
       {weak ? (
         <div className="card row between sel">
@@ -224,7 +224,7 @@ export function Report({ s, go }) {
           <button className="btn sm soft" onClick={practice}>연습하기</button>
         </div>
       ) : (
-        <div className="card sel"><div className="cap">{allOk ? '모두 맞았어요!' : '전환은 잘 따라왔어요'}</div><h2>{allOk ? '템포를 올려 볼까요?' : '소리를 조금 더 크게 내 볼까요?'}</h2></div>
+        <div className="card sel"><div className="cap">{allOk ? '모두 맞았어요!' : '전환은 잘 따라왔어요'}</div><h2>{allOk ? '템포를 올려 볼까요?' : last.judge === 'mic' ? '표시된 코드를 또렷하게 쳐 볼까요?' : '소리를 조금 더 크게 내 볼까요?'}</h2></div>
       )}
       <div className="card">
         {comparable ? <b style={{ fontSize: 14 }}>지난번보다 박자 맞음 {prev.bars.filter((r) => r === 'ok').length}/8 → {onbeat}/8{last.judge !== 'mic' ? ' (모의 판정끼리 비교)' : ''}</b> : prev ? <><b style={{ fontSize: 14 }}>비교할 수 있는 직전 기록이 없어요.</b><div className="sub" style={{ fontSize: 12 }}>코드 구성·템포·판정 방식·실행 속도가 같은 기록만 비교해요.</div></> : <b style={{ fontSize: 14 }}>첫 연주예요. 같은 조건의 다음 연습부터 비교해 드려요</b>}

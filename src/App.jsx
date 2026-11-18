@@ -178,8 +178,8 @@ function Attend({ s, update, go, paused = false }) {
     <div className="screen center">
       <div className="row w100"><button className="iconbtn" aria-label="출석 화면 닫기" onClick={() => go('home')}>✕</button></div>
       <div className="tc">
-        <h1>{phase === 'denied' ? '마이크를 쓸 수 없어요' : phase === 'fail' ? '소리가 잘 안 들려요' : '기타를 한 번 튕겨 주세요'}</h1>
-        <div className="sub" style={{ marginTop: 6 }}>{phase === 'denied' ? '버튼으로 출석할 수 있어요' : phase === 'fail' ? '폰 가까이에서 코드를 한 번 더 연주해 볼까요?' : 'Em·G·C 등 아는 코드를 연주해 주세요. 코드가 확인된 시간을 2초 모아요.'}</div>
+        <h1>{phase === 'denied' ? '마이크를 쓸 수 없어요' : phase === 'fail' ? '소리가 잘 안 들려요' : '아는 코드를 쳐 주세요!'}</h1>
+        <div className="sub" style={{ marginTop: 6 }}>{phase === 'denied' ? '버튼으로 출석할 수 있어요' : phase === 'fail' ? '폰 가까이에서 코드를 한 번 더 연주해 볼까요?' : 'Em·G·C처럼 익숙한 코드면 돼요. 코드 소리가 2초 들리면 출석이에요.'}</div>
       </div>
       <div className="grow"><Piki name={acc > 0.3 && phase === 'listen' ? 'yay' : 'listen'} size={220} /></div>
       {phase === 'listen' && (<>
@@ -509,7 +509,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div className="panel-row"><span>속도</span><select value={s.panel.speed} onChange={(e) => set('speed', Number(e.target.value))}><option value="1">×1</option><option value="3">×3</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>곡·전환 연습 중 속도를 바꾸면 완료한 마디는 유지하고 현재 마디부터 다시 시작해요.</div>
       <div className="panel-row"><span>곡 판정</span><select value={s.panel.judge} onChange={(e) => set('judge', e.target.value)}><option value="mic">마이크 소리</option><option value="random">랜덤</option><option value="allok">모두 성공</option><option value="hard">전환 어려움</option></select></div>
-      <div className="panel-row"><span>자세 결과 (PRD 원본)</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="sim">시뮬레이션</option><option value="self">참가자가 직접 선택</option></select></div>
+      <div className="panel-row"><span>자세 촬영 결과</span><select value={s.panel.posture} onChange={(e) => set('posture', e.target.value)}><option value="real">사진으로 실제 판정</option><option value="sim">시뮬레이션</option><option value="self">참가자가 직접 선택</option></select></div>
       <div className="sub" style={{ fontSize: 11 }}>오늘 {today(s)} · 소리 기준값 {threshold()} · 코드 인식기 {ear.status()} · {ear.chord()||'코드 없음'}</div>
       <a href="/licenses/" target="_blank" rel="noreferrer">오픈소스 라이선스·해당 버전 소스</a>
       <button className="btn" onClick={close}>닫기</button>

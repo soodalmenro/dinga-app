@@ -4,6 +4,7 @@ import { content, mic, makeOnsetDetector, today, sfx, logEvent } from './lib.js'
 import { SongPosture } from './SongPosture.jsx';
 import { ear } from './guitarEar.js';
 import { createChordBarEvidence } from './chordBarEvidence.js';
+import { sameChord } from './chordMatch.js';
 import { GuitarInputStatus } from './GuitarInputStatus.jsx';
 import {finalizedGuitarBars} from './guitarTimeline.js';
 import { songDiagnostics } from './evaluationExport.js';
@@ -153,7 +154,7 @@ export function SongPlay({ s, update, go, params, paused = false }) {
       const inBar = hits.current.filter((t) => t >= a - beatMs * 0.25 && t < b - beatMs * 0.25);
       const decision = spectrum.take(i);
       if (!inBar.length) return { t: 'none', c: false };
-      return { t: inBar[0] - a > beatMs * 0.6 ? 'late' : 'ok', c: decision.chord === null ? null : decision.chord === BARS[i].chord, detectedChord: decision.chord, reason: decision.reason, classifier: decision.version };
+      return { t: inBar[0] - a > beatMs * 0.6 ? 'late' : 'ok', c: decision.chord === null ? null : sameChord(decision.chord, BARS[i].chord), detectedChord: decision.chord, reason: decision.reason, classifier: decision.version };
     };
     const id = setInterval(() => {
       const now = performance.now();

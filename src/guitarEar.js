@@ -1,3 +1,4 @@
+import { sameChord, canonicalChord } from './chordMatch.js';
 // Local Chordino observations. Failure/unsupported input always remains unknown.
 const BASE = `${import.meta.env.BASE_URL}chordino/`;
 const FRESH_MS = 700, MAX_SOURCE_LAG_MS = 1600, READY_TIMEOUT_MS = 15000;
@@ -8,9 +9,8 @@ const now = () => performance.now();
 function notify() { for (const listener of listeners) { try { listener(ear.chord(), ear.snapshot()); } catch {} } }
 function clear(status = state.status) { Object.assign(state, { status, chord: '', since: 0, sourceAt: 0, receivedAt: 0, floor: 0, level: 0,candidate:'',gate:0,sustained:0,currentSustained:0 }); notify(); }
 function fresh() { return state.status === 'ready' && resources?.context.state === 'running' && !resources?.doc?.hidden && state.receivedAt > 0 && now() - state.receivedAt <= FRESH_MS && now() - state.sourceAt <= MAX_SOURCE_LAG_MS; }
-// Exact named major/minor triads only. Extensions, inversions and missing thirds abstain.
-export function parseChord(label) { const match = /^([A-G](?:#|b)?)(m?)$/.exec(typeof label === 'string' ? label : ''); return match ? { root: match[1], minor: match[2] === 'm' } : null; }
-export function sameChord(label, target) { const heard = parseChord(label), wanted = parseChord(target); return !!heard && !!wanted && heard.root === wanted.root && heard.minor === wanted.minor; }
+// Chord-name variants (Em7, Em/B, E5) are folded into one family: see chordMatch.js.
+export { sameChord, canonicalChord };
 export const ear = {
   status() { return state.status === 'ready' && !fresh() && state.receivedAt > 0 ? 'stale' : state.status; },
   usable: () => fresh(),
@@ -61,7 +61,8 @@ export const ear = {
         if (atMs === r.lastSourceMs) return;
         const interrupted = !fresh() || received - state.receivedAt > FRESH_MS || sourceAt - state.sourceAt > FRESH_MS;
         r.lastSourceMs = atMs;
-        const chord = typeof data.chord === 'string' && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|[0-9]|[:/+º#b-]){0,20}$/.test(data.chord) ? data.chord : '';
+        // Keep the chord family (Em7 → Em, G/B → G, E5 stays E5) so a flickering extension does not reset stability.
+        const chord = typeof data.chord === 'string' && /^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|[0-9]|[:/+º#b-]){0,20}$/.test(data.chord) ? canonicalChord(data.chord) : '';
         if (chord !== state.chord || interrupted) state.since = chord ? sourceAt : 0;
         Object.assign(state, { status: 'ready', chord, sourceAt, receivedAt: received, floor: Number.isFinite(data.floor) ? data.floor : 0, level: Number.isFinite(data.level) ? data.level : 0 });
         state.candidate=typeof data.candidate==='string'&&/^[A-G](?:#|b)?(?:m|maj|min|dim|aug|sus|add|[0-9]|[:/+º#b-]){0,20}$/.test(data.candidate)?data.candidate:'';

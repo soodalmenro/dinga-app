@@ -24,7 +24,7 @@
   "wrist": {
    "name": "손목",
    "title": "손목을 곧게 펴고 앉아 주세요",
-   "warn": "손목을 너무 꺾지 말고 곧게 펴 봐요"
+   "warn": "왼손을 조금 앞으로 내밀고 손목을 곧게 펴 보세요"
   },
   "thumb": {
    "name": "엄지",
@@ -34,12 +34,17 @@
   "shoulder": {
    "name": "어깨",
    "title": "어깨 힘을 빼고 편하게 앉아 주세요",
-   "warn": "어깨를 내리고 힘을 빼 보세요"
+   "warn": "어깨 힘을 빼고 양쪽 높이를 맞춰 보세요"
   },
   "all": {
    "name": "전체 자세",
    "title": "화면 안에 상체와 기타가 보이게 앉아요",
    "warn": ""
+  },
+  "hand": {
+   "name": "왼손 높이",
+   "title": "왼손을 소리 내는 손보다 조금 높게 들어요",
+   "warn": "왼손을 사운드홀보다 조금 높게 들면 손목과 어깨가 편해져요"
   }
  },
  "chords": {
@@ -445,7 +450,8 @@
   "neckRatio": 0.3,
   "holdMs": 1500,
   "cooldownMs": 15000,
-  "maxPerPart": 3
+  "maxPerPart": 3,
+  "photoWristDeg": 30
  },
  "challenge": {
   "title": "첫 곡"

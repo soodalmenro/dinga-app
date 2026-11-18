@@ -22,7 +22,7 @@ const empty = () => ({
   songPractice: { last: null, count: 0, best: 0 }, // 곡 연습(가사·코드 화면) 결과
   ptab: 'review', // 연습 탭에서 마지막에 본 구분: review | transition | song
   // variant: 'idea' = 아이디어 반영(위젯·연주 중 자세 알림·같은 곡 챌린지), 'prd' = PRD 원본(연습 전 자세 촬영·친구 목록)
-  panel: { mood: 'auto', speed: 1, judge: 'mic', posture: 'sim', dayShift: 0, pid: '', variant: 'idea', alert: 'auto', fresh: false },
+  panel: { mood: 'auto', speed: 1, judge: 'mic', posture: 'real', dayShift: 0, pid: '', variant: 'idea', alert: 'auto', fresh: false },
 });
 
 const isRecord = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
@@ -94,7 +94,7 @@ export function load() {
     state.panel = { ...base.panel, ...(isRecord(raw.panel) ? raw.panel : {}) };
     for (const [key, options] of Object.entries({
       variant: ['idea', 'prd'], alert: ['auto', 'real', 'manual', 'off'],
-      judge: ['mic', 'random', 'allok', 'hard'], posture: ['sim', 'self'],
+      judge: ['mic', 'random', 'allok', 'hard'], posture: ['real', 'sim', 'self'],
       mood: ['auto', ...Object.keys(content.moodNames)],
     })) {
       if (!options.includes(state.panel[key])) state.panel[key] = base.panel[key];

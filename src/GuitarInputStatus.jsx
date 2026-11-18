@@ -1,5 +1,5 @@
 import React,{useEffect,useState} from 'react';
-import {ear} from './guitarEar.js';
+import {ear,sameChord} from './guitarEar.js';
 import {mic} from './lib.js';
 import {currentEvaluationBundle} from './evaluationExport.js';
 export function GuitarInputStatus({target,retry}){
@@ -7,7 +7,7 @@ export function GuitarInputStatus({target,retry}){
  const[input,setInput]=useState(0);
  useEffect(()=>{const refresh=()=>setState(ear.snapshot());const unwatch=ear.subscribe(refresh);const timer=setInterval(()=>{setInput(mic.level());refresh();},250);return()=>{unwatch();clearInterval(timer);};},[]);
  const failed=['failed','unsupported','stale','paused'].includes(state.status);
- const label=failed?(state.status==='stale'||state.status==='paused'?'새 오디오 입력을 기다리고 있어요. 계속 멈춰 있으면 다시 시도해 주세요.':'코드 인식기를 준비하지 못했어요. 소리 크기만으로 성공 처리하지 않아요.'):state.status==='loading'?'코드 인식 준비 중이에요…':state.chord?`들리는 코드: ${state.chord}${target&&state.chord!==target?` · 목표 ${target}`:''}`:'기타 코드를 기다려요. 코드가 확인된 입력만 세어요.';
+ const label=failed?(state.status==='stale'||state.status==='paused'?'소리를 다시 듣고 있어요. 계속 멈춰 있으면 다시 시도해 주세요.':'코드를 들을 준비가 안 됐어요. 다시 시도해 주세요.'):state.status==='loading'?'코드를 들을 준비를 하고 있어요…':state.chord?(target?(sameChord(state.chord,target)?`${target} 코드가 들려요`:`지금은 ${state.chord} 코드가 들려요 · ${target} 코드를 쳐 주세요`):`${state.chord} 코드가 들려요`):(target?`${target} 코드를 쳐 주세요`:'아는 코드를 쳐 주세요!');
  return <div className="sub tc">
   <p role="status" style={{margin:'0 0 4px'}}>{label}</p>
   <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,fontSize:12}}><span>마이크 입력</span><meter aria-label="마이크 입력 크기" min="0" max="0.1" value={Math.min(.1,input)} style={{width:100}}/><span>{input>=.0001?'입력 신호 있음':'입력이 거의 없음'}</span></div>
