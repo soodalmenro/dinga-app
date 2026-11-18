@@ -14,6 +14,7 @@ import courseChevron from './img/course-chevron.svg';
 import { useMicrophone } from './useMicrophone.js';
 import PracticeSetup from './PracticeSetup.jsx';
 import { readPoseDebugFlag, writePoseDebugFlag } from './PoseDebug.jsx';
+import { readInputDiagnosticsFlag, writeInputDiagnosticsFlag } from './GuitarInputStatus.jsx';
 import { buildEvaluationExport, copyEvaluationText, downloadEvaluation, currentEvaluationBundle, LOG_LIMIT } from './evaluationExport.js';
 import { getLogStorageMode, remapResumeVariant } from './lib.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
@@ -76,6 +77,7 @@ function Challenge({ s, go, toast }) {
     <div className="card challenge">
       <div className="row between"><span className="cap">친구와 같은 곡 연습</span><span className="pill w" style={{ color: 'var(--od)' }}>코스 1 곡</span></div>
       <h2 style={{ fontSize: 18 }}>{content.challenge.title}</h2>
+      <div className="sub" style={{ fontSize: 13, marginTop: -6 }}>같은 코스 친구들과 같은 곡을 쳐요</div>
       <div className="people">
         {people.map((p) => (
           <div key={p.name}>
@@ -439,6 +441,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
   const [exportScope, setExportScope] = useState('participant');
   const [notice, setNotice] = useState(null);
   const [poseDebugOn, setPoseDebugOn] = useState(readPoseDebugFlag);
+  const [inputDiagOn, setInputDiagOn] = useState(readInputDiagnosticsFlag);
   const operation = useRef(0);
   useEffect(() => () => { operation.current += 1; }, []);
   useEffect(() => { operation.current += 1; setLogText(null); setNotice(null); }, [s.panel.pid]);
@@ -487,6 +490,7 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div className="panel-row"><span>폰 홈 화면 (위젯)</span><button onClick={() => { close(); go('phone'); }}>보기</button></div>
       <div className="panel-row"><span>딩가 알림 (폰 홈 화면에 뜸)</span><select aria-label="딩가 알림 예약" value="" onChange={(e) => { const v = e.target.value; if (v === '') return; const friend = v.startsWith('friend-'); const delay = Number(v.replace('friend-', '')); notifyRequest = v === 'cancel' ? null : { kind: friend ? 'friend' : 'mood', due: Date.now() + delay * 1000 }; logEvent(v === 'cancel' ? 'notify_cancel' : 'notify_armed', v === 'cancel' ? {} : { delay }); close(); go('phone'); setTimeout(() => window.dispatchEvent(new Event('dinga-notify')), 0); }}><option value="">고르기</option><option value="0">지금</option><option value="60">1분 뒤</option><option value="180">3분 뒤</option><option value="friend-0">친구 완료 · 지금</option><option value="friend-60">친구 완료 · 1분 뒤</option><option value="cancel">예약 취소</option></select></div>
       <div className="panel-row"><span>자세 알림</span><span><select value={s.panel.alert} onChange={(e) => set('alert', e.target.value)}><option value="auto">정해진 시점</option><option value="real">실제 판정</option><option value="manual">진행자가 띄움</option><option value="off">끔</option></select></span></div>
+      <div className="panel-row"><span>마이크 입력 진단 표시</span><select aria-label="마이크 입력 진단 표시" value={inputDiagOn ? 'on' : 'off'} onChange={(e) => { const on = e.target.value === 'on'; writeInputDiagnosticsFlag(on); setInputDiagOn(on); }}><option value="off">끔 (참가자 화면)</option><option value="on">켬 (입력 막대 · 진단 정보)</option></select></div>
       <div className="panel-row"><span>자세 판정 디버그 화면</span><select aria-label="자세 판정 디버그 화면" value={poseDebugOn ? 'on' : 'off'} onChange={(e) => { const on = e.target.value === 'on'; writePoseDebugFlag(on); setPoseDebugOn(on); }}><option value="off">끔</option><option value="on">켬 (자세 알림 · 실제 판정일 때만 보임)</option></select></div>
       <div className="panel-row"><span>자세 알림 한 번 띄우기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-alert')); close(); }}>지금 띄우기</button></div>
       <div className="panel-row"><span>전체 행동 기록 ({getLog().length}건)</span><span><button onClick={showLog}>복사</button> <button onClick={() => { operation.current += 1; clearLog(); setLogText(null); setNotice(null); set('pid', s.panel.pid); }}>비우기</button></span></div>
@@ -500,11 +504,11 @@ function Panel({ s, update, setS, close, go, editingLocked = false }) {
       <div className="panel-row"><span>마지막 출석</span><select defaultValue="" onChange={(e) => { const v = e.target.value; if (v === 'streak') fill(0, 3); else if (v !== '') fill(Number(v)); }}><option value="">고르기</option><option value="streak">오늘까지 3일 연속</option><option value="1">1일 전</option><option value="2">2일 전</option><option value="4">4일 전</option><option value="7">7일 전</option></select></div>
       <div className="panel-row"><span>파트 3 카메라 테스트</span><button onClick={() => {
         mic.stop();
-        update((d) => { d.panel.variant = 'idea'; d.panel.judge = 'allok'; d.panel.alert = 'auto'; d.panel.speed = 1; });
+        update((d) => { d.panel.variant = 'idea'; d.panel.alert = 'auto'; d.panel.speed = 1; }); // 곡 판정 설정은 바꾸지 않는다(평가 때 '모두 성공'이 남지 않게)
         close();
         go('lesson', { lesson: 'song', part: 2, step: 0, key: Date.now() });
       }}>파트 3 카메라 테스트 열기</button></div>
-      <div className="sub" style={{ fontSize: 11 }}>아이디어 반영 · 모두 성공 · 정해진 시점 · ×1로 열어요. 완주하면 실제 테스트 기록이 남아요.</div>
+      <div className="sub" style={{ fontSize: 11 }}>아이디어 반영 · 정해진 시점 · ×1로 열어요. 곡 판정 설정은 그대로예요. 완주하면 실제 테스트 기록이 남아요.</div>
       <div className="panel-row"><span>레슨 1~3 완료 처리</span><button onClick={() => update((d) => { ['em', 'g', 'c'].forEach((k) => { d.done[k] = [true, true, true]; }); })}>적용</button></div>
       <div className="panel-row"><span>코스 1 전부 완료 처리 (곡 연습 열기)</span><button onClick={() => update((d) => { ['em', 'g', 'c', 'song'].forEach((k) => { d.done[k] = [true, true, true]; }); d.resume = null; })}>적용</button></div>
       <div className="panel-row"><span>단계 건너뛰기</span><button onClick={() => { window.dispatchEvent(new Event('dinga-skip')); close(); }}>다음</button></div>

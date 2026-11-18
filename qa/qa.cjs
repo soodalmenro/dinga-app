@@ -27,6 +27,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   await setSt(p, { panel: { speed: 3 } });
   await btn(p, '오늘 연습 시작').click(); await p.waitForTimeout(600);
   ok('출석: 코드 확인 안내', (await txt(p)).includes('코드 소리가 2초 들리면 출석이에요'));
+  ok('출석: 마이크 진단 정보는 기본으로 숨김', await p.locator('meter[aria-label="마이크 입력 크기"]').count() === 0 && !(await txt(p)).includes('입력 진단 정보'));
   ok('출석: 하단 탭 숨김', await p.locator('.tabbar').count() === 0);
   await btn(p, '마이크 없이 출석하기').click(); await p.waitForTimeout(300);
   ok('출석 완료 화면', (await txt(p)).includes('출석 완료!'));
@@ -251,7 +252,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   const t2 = Date.now(); await p.locator('.palert').waitFor({ state: 'detached', timeout: 9000 }).catch(() => {}); const shown = Date.now() - t2;
   ok('P1: 알림과 카메라 창은 약 3초 뒤 사라짐', await p.locator('.palert').count() === 0 && await p.locator('.pip').count() === 0 && shown > 2000 && shown < 6000, `${t2 - t1}ms 뒤 뜸, ${shown}ms 보임`);
   console.log(`  (알림: 누른 뒤 ${t2 - t1}ms에 뜸, ${shown}ms 동안 보임)`);
-  await panel(); await p.locator('.panel-row', { hasText: '자세 알림' }).locator('select').selectOption('auto'); await btn(p, '닫기').click(); await p.locator('.palert').waitFor({ timeout: 8000 }).catch(() => {});
+  await panel(); await p.locator('.panel-row').filter({ has: p.getByText('자세 알림', { exact: true }) }).locator('select').selectOption('auto'); await btn(p, '닫기').click(); await p.locator('.palert').waitFor({ timeout: 8000 }).catch(() => {});
   ok('P1 정해진 시점: 5초(×3 속도) 뒤 알림', await p.locator('.palert').count() === 1);
   lg2 = await logs();
   ok('행동 기록: 자세 알림이 방식과 함께 남음', ['manual', 'timed'].every((h) => lg2.some((x) => x.type === 'posture_alert' && x.how === h)) && lg2.some((x) => x.type === 'widget_open'));

@@ -22,7 +22,7 @@ const assert = require('node:assert/strict');
     await page.getByRole('button', { name: '파트 3 카메라 테스트 열기', exact: true }).click();
     await page.getByRole('heading', { name: '첫 곡 · 완주', exact: true }).waitFor();
     const panel = await page.evaluate(() => JSON.parse(localStorage.getItem('dinga-v1')).panel);
-    assert.equal(panel.judge, 'allok');
+    assert.notEqual(panel.judge, 'allok', 'shortcut must not leave fake judging on');
     assert.equal(panel.alert, 'auto');
     assert.equal(panel.speed, 1);
     await page.getByRole('button', { name: /바로 시작/ }).click();

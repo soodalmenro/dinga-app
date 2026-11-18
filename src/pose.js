@@ -177,7 +177,10 @@ export function watchPosture(video, { onIssue, onStatus, focus = 'all' }) {
     // 네 번째 인자는 디버그 화면용 부가 정보다. 기존 호출부는 무시해도 된다.
     onStatus(m.wrist == null && m.tilt == null ? 'nobody' : 'seen', m, cameraFraming(lm, th.hand, focus),
       { landmarks: lm, world: r.poseWorldLandmarks, measured: m, baseline, bad, fps, inferenceMs: now - frameStartedAt, thresholds: th, calibrating: !!calib });
+    // 이번 프레임에서 그 부위를 재지 못했으면(사람·관절이 안 보임) '괜찮음'이 아니라 관측 끊김이므로 바로 초기화한다
+    const observed = { wrist: finite(m.wrist3d) || finite(m.wrist), shoulder: finite(m.tilt) || finite(m.neck) };
     ['wrist', 'shoulder'].forEach((k) => {
+      if (!observed[k]) { since[k] = null; goodSince[k] = null; return; }
       if (!bad.includes(k)) {
         if (since[k] != null) {
           if (goodSince[k] == null) goodSince[k] = now;
