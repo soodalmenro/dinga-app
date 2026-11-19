@@ -298,3 +298,5 @@ input[type='range'] { width: 100%; accent-color: var(--o); height: 28px; }
 .cmp-pane span { position: absolute; left: 8px; bottom: 6px; width: auto; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 800; color: #fff; background: rgba(48, 47, 70, 0.62); }
 .cmp-pane.ref { border-radius: 18px; }
 .coach-card.cmp { width: min(330px, 94%); padding: 6px; gap: 6px; border-radius: 20px; background: #fff; max-height: 100%; overflow: hidden; }
+/* 다른 코드로 친 마디(11/19 QA) */
+.bar.wrong { background: #ffe3dd; box-shadow: none; } .bar.wrong small { color: #c0392b; font-weight: 800; }

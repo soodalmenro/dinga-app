@@ -8,10 +8,12 @@ import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { useBeforeUnload } from './useBeforeUnload.js';
 import {GuitarInputStatus} from './GuitarInputStatus.jsx';
 import {guitarBarIndex,finalizedGuitarBars} from './guitarTimeline.js';
+import { canonicalChord } from './chordMatch.js';
 
 const SONG = content.songChart.bars;
 const pairBars = (p) => [p[0], p[0], p[1], p[1], p[0], p[0], p[1], p[1]];
-const MARK = { ok: '✓', late: '늦음', none: '–' };
+const MARK = { ok: '✓', late: '늦음', none: '–', wrong: '다른 코드' };
+const chordLabel = (c) => canonicalChord(c).replace(/5$/, '') || c;
 
 export function Song({ s, update, go, params, microphone, paused = false, restartCurrentBar = false, coach = null }) {
   const pair = params && params.pair; const BARS = pair ? pairBars(pair) : SONG; const emb = params && params.onDone; // emb = 레슨 안 전환 단계
@@ -35,6 +37,11 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   const [activeJudge, setActiveJudge] = useState(null);
   const judgeMode = activeJudge || (micOn === false && configuredJudge === 'mic' ? 'random' : configuredJudge);
   const hits = useRef([]);
+  // 다른 코드로 친 소리(11/19 QA): 마디 판정은 '다른 코드', 캐릭터가 바로 알려 준다
+  const misses = useRef([]); const wrongChords = useRef({});
+  const [miss, setMiss] = useState(null);
+  const [retry, setRetry] = useState(false);
+  useEffect(() => { if (!miss) return undefined; const id = setTimeout(() => setMiss(null), 2500); return () => clearTimeout(id); }, [miss]);
   const elapsed = useRef(0);
   const results = useRef([]);
   const startLogged = useRef(false);
@@ -90,8 +97,9 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   }, [phase, micOn, configuredJudge, exit, suspended]);
   // 연주: 박자를 세고 마디가 끝날 때마다 판정
   useEffect(() => {
-    if (phase !== 'play' || exit || suspended) return undefined;
-    const stop = micOn ? makeOnsetDetector((_at,_level,originalElapsed) => hits.current.push(originalElapsed),{target:()=>BARS[Math.min(7,guitarBarIndex(elapsed.current,beatMs))],snapshot:()=>elapsed.current,simulated:judgeMode!=='mic'}) : () => {};
+    if (phase !== 'play' || exit || suspended || retry) return undefined;
+    const onMiss = (_at, _level, originalElapsed, heard) => { misses.current.push({ t: originalElapsed, chord: chordLabel(heard.chord) }); setMiss({ chord: chordLabel(heard.chord), target: heard.target }); };
+    const stop = micOn ? makeOnsetDetector((_at,_level,originalElapsed) => hits.current.push(originalElapsed),{onMiss,target:()=>BARS[Math.min(7,guitarBarIndex(elapsed.current,beatMs))],snapshot:()=>elapsed.current,simulated:judgeMode!=='mic'}) : () => {};
     const out = results.current;
     if (!startLogged.current) { startLogged.current = true; logEvent('song_start', { tempo, mic: !!micOn, judge: judgeMode }); }
     let lastTick = performance.now(); let lastBeat = -1;
@@ -102,6 +110,8 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       if (mode === 'random') { const r = Math.random(); return r < 0.7 ? 'ok' : r < 0.9 ? 'late' : 'none'; }
       const a = i * 4 * beatMs; const b = a + 4 * beatMs;
       const inBar = hits.current.filter((t) => t >= a - beatMs * 0.25 && t < b - beatMs * 0.25);
+      const wrong = misses.current.find((m) => m.t >= a - beatMs * 0.25 && m.t < b - beatMs * 0.25);
+      if (wrong) { wrongChords.current[i] = wrong.chord; return 'wrong'; } // 늦음·빠름과 상관없이 다른 코드를 한 번이라도 치면 틀림
       if (!inBar.length) return 'none';
       return inBar[0] - a > beatMs * 0.6 ? 'late' : 'ok'; // 마디 첫 소리가 반 박 넘게 늦으면 '전환 늦음'
     };
@@ -119,7 +129,12 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       setRes([...out]); setBar(Math.min(curBar, 7)); setBeat(b % 4);
       if (out.length >= 8) {
         clearInterval(id); stop();
-        if (emb) { logEvent('transition_end', { pair: pair.join('-'), judge: judgeMode, bars: out.join(',') }); sfx.ok(); params.onDone(); return; }
+        if (emb) {
+          const wrong = out.includes('wrong');
+          logEvent('transition_end', { pair: pair.join('-'), judge: judgeMode, bars: out.join(','), retry: wrong });
+          if (wrong) { setRetry(true); return; } // 한 번이라도 다른 코드로 치면 다시 연습(11/19 QA)
+          sfx.ok(); params.onDone(); return;
+        }
         update((d) => {
           const t = today(d); const firstCh = false; // 같은 곡 완료 표시는 곡 연습(SongPlay)에서 한다
           d.song.prev = d.song.last; d.song.last = { judge: judgeMode, bars: out, chart: BARS, pair: pair || null, back: (params && params.back) || null, tempo, speed: comparisonSpeed.current, date: t, challengeFirst: firstCh }; d.history[t] = (d.history[t] || 0) + (params && params.fromLesson ? 180 : 120);
@@ -130,11 +145,16 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       }
     }, 40);
     return () => { clearInterval(id); stop(); };
-  }, [phase, exit, suspended, beatMs]);
+  }, [phase, exit, suspended, beatMs, retry]);
 
+  const again = () => {
+    results.current = []; hits.current = []; misses.current = []; wrongChords.current = {}; elapsed.current = 0;
+    setRes([]); setBar(0); setBeat(0); setMiss(null); setRetry(false); setPhase('wait');
+  };
   const startManual = () => { setActiveJudge(judgeMode); setPhase('play'); };
   // 레슨 안에서는 안내를 캐릭터 말풍선으로(11/18 QA)
-  const embSay = micOn === null ? '마이크를 준비하고 있어요' : count ? `딱 소리에 맞춰요. 준비… ${count}` : phase === 'play' ? `${BARS[bar]} 코드를 딱 소리에 맞춰 쳐요` : '곧 시작해요';
+  const wrongBars = res.filter((r) => r === 'wrong').length;
+  const embSay = retry ? `다른 코드로 친 마디가 ${wrongBars}개 있어요. 처음부터 다시 해 볼까요?` : miss ? `지금은 ${miss.chord} 코드예요. ${miss.target} 코드를 쳐 주세요` : micOn === null ? '마이크를 준비하고 있어요' : count ? `딱 소리에 맞춰요. 준비… ${count}` : phase === 'play' ? `${BARS[bar]} 코드를 딱 소리에 맞춰 쳐요` : '곧 시작해요';
   return (
     <div className={emb ? 'embed' : 'screen'}>
       {emb ? <div><div className="cap">코드 전환 연습</div><div className="big">{pair[0]} ↔ {pair[1]}</div></div>
@@ -147,12 +167,13 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       <div className="bars">
         {BARS.map((c, i) => {
           const r = res[i]; const now = phase === 'play' && i === bar && !r;
-          return <div key={i} className={`bar ${r || ''}${now ? ' now' : ''}`}><b>{c}</b><small>{r ? MARK[r] : now ? '●○○○'.split('').map((_, k) => (k === beat ? '●' : '○')).join('') : ''}</small></div>;
+          return <div key={i} className={`bar ${r || ''}${now ? ' now' : ''}`}><b>{c}</b><small>{r === 'wrong' ? `${wrongChords.current[i] || '다른'}?` : r ? MARK[r] : now ? '●○○○'.split('').map((_, k) => (k === beat ? '●' : '○')).join('') : ''}</small></div>;
         })}
       </div>
       {emb
         ? <div className="grow stage-say"><div className="bubble say" role="status" key={embSay}>{embSay}</div>{coach || <Piki name="play" size={110} />}</div>
-        : <div className="grow">{coach || <Piki name="play" size={170} />}</div>}
+        : <div className="grow stage-say">{miss && <div className="bubble say" role="status" key={miss.chord + res.length}>지금은 {miss.chord} 코드예요. {miss.target} 코드를 쳐 주세요</div>}{coach || <Piki name="play" size={170} />}</div>}
+      {retry && <button className="btn" onClick={again}>다시 연습하기</button>}
       {phase === 'wait' && micOn === false && !emb && <button className="btn" onClick={startManual}>시작하기</button>}
       {phase === 'wait' && micOn === null && !inputLost && !emb && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}
       <div className="card">
@@ -189,7 +210,7 @@ export function comparableTransitionResults(last, prev) {
   const valid = (result) => result && modes.includes(result.judge)
     && Number.isFinite(result.tempo) && result.tempo >= 40 && result.tempo <= 125
     && Number.isFinite(result.speed) && result.speed > 0
-    && Array.isArray(result.bars) && result.bars.length === 8 && result.bars.every((bar) => ['ok', 'late', 'none'].includes(bar));
+    && Array.isArray(result.bars) && result.bars.length === 8 && result.bars.every((bar) => ['ok', 'late', 'none', 'wrong'].includes(bar));
   if (!valid(last) || !valid(prev) || last.judge !== prev.judge || last.tempo !== prev.tempo || last.speed !== prev.speed) return false;
   if ((last.pair == null) !== (prev.pair == null)) return false;
   if (last.pair != null && (!Array.isArray(last.pair) || !Array.isArray(prev.pair) || last.pair.length !== 2 || prev.pair.length !== 2 || !last.pair.every((chord, i) => Object.hasOwn(content.chordNotes, chord) && chord === prev.pair[i]))) return false;
@@ -233,7 +254,7 @@ export function Report({ s, go }) {
       <div className="col" style={{ gap: 8 }}>
         <b style={{ fontSize: 13 }}>마디별 결과</b>
         <div className="minibars">{last.bars.map((r, i) => <div key={i} className={`bar ${r}`}><b>{BARS[i]}</b><small>{MARK[r]}</small></div>)}</div>
-        <div className="row sub" style={{ fontSize: 11, gap: 12 }}><span>✓ 박자 맞음</span><span>늦음 = 전환 늦음</span><span>{last.judge === 'mic' ? '– 코드 확인 안 됨' : '– 소리 안 들림'}</span></div>
+        <div className="row sub" style={{ fontSize: 11, gap: 12 }}><span>✓ 박자 맞음</span><span>늦음 = 전환 늦음</span>{last.bars.includes('wrong') && <span>다른 코드 = 다른 코드로 침</span>}<span>{last.judge === 'mic' ? '– 코드 확인 안 됨' : '– 소리 안 들림'}</span></div>
       </div>
       {weak ? (
         <div className="card row between sel">
