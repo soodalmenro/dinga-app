@@ -167,7 +167,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       <div className="bars">
         {BARS.map((c, i) => {
           const r = res[i]; const now = phase === 'play' && i === bar && !r;
-          return <div key={i} className={`bar ${r || ''}${now ? ' now' : ''}`}><b>{c}</b><small>{r === 'wrong' ? `${wrongChords.current[i] || '다른'}?` : r ? MARK[r] : now ? '●○○○'.split('').map((_, k) => (k === beat ? '●' : '○')).join('') : ''}</small></div>;
+          return <div key={i} className={`bar ${r || ''}${now ? ' now' : ''}`}><b>{c}</b><small>{r === 'wrong' ? (wrongChords.current[i] || '다른 코드') : r ? MARK[r] : now ? '●○○○'.split('').map((_, k) => (k === beat ? '●' : '○')).join('') : ''}</small></div>;
         })}
       </div>
       {emb
