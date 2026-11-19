@@ -74,13 +74,14 @@ const endAudio=page=>page.evaluate(()=>{const track=window.mediaTests.audio.at(-
     assert.equal(result.complete,true);assert.ok(result.score>=90);
     console.log('PASS twelve-bar recovery preserves completed bars, rejects failed retry and replays unfinished bar');
    }finally{await page.close();}
-   page=await open(browser,url,{ptab:'transition',panel:{speed:12,alert:'off'}});
+   // 마이크 판정은 진짜 코드 소리가 필요해서(실제 소리 검사가 따로 본다) 여기서는 소리 크기로 세는 모의 판정(random)으로 끊김 복구만 본다
+   page=await open(browser,url,{ptab:'transition',panel:{speed:12,alert:'off',judge:'random'}});
    try{
     await button(page,'연습').click();await page.getByRole('button',{name:'연습하기',exact:true}).first().click();
     await page.waitForFunction(async()=>(await import('/src/lib.js')).mic.state==='on');await page.evaluate(()=>{window.testAmplitude=.2;});
-    await page.locator('.bars .bar.ok').first().waitFor();await endAudio(page);
+    await page.locator('.bars .bar.ok, .bars .bar.late, .bars .bar.none').first().waitFor();await endAudio(page);
     await page.getByRole('heading',{name:'마이크 연결이 끊겼어요',exact:true}).waitFor();await button(page,'마이크 없이 계속하기').click();
-    await button(page,'시작하기').waitFor();assert.equal(await page.locator('.bars .bar.ok').count(),0);
+    await button(page,'시작하기').waitFor();assert.equal(await page.locator('.bars .bar.ok, .bars .bar.late, .bars .bar.none').count(),0);
     await page.getByText('모의 판정으로 진행해요',{exact:true}).waitFor();await button(page,'시작하기').click();
     await page.getByRole('heading',{name:'전환 연습 결과',exact:true}).waitFor();
     const result=await page.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')).song.last);assert.equal(result.judge,'random');assert.equal(result.bars.length,8);

@@ -45,7 +45,8 @@ async function permissions(browser, url) {
     await button(page, '학습').waitFor();
     console.log('PASS ignored permission prompt can be skipped without late response replacing attendance');
   } finally { await page.close(); }
-  page = await openPage(browser, url, { resume: { lesson: 'em', part: 1, step: 0 } }, 'defer');
+  // 늦게 온 마이크 허락 뒤에 소리를 받기 시작하는지 본다. 코드 판정이 아니라 소리 크기로 세는 모의 판정 모드로 확인한다(마이크 판정은 진짜 코드 소리가 필요)
+  page = await openPage(browser, url, { resume: { lesson: 'em', part: 1, step: 0 }, panel: { judge: 'allok' } }, 'defer');
   try {
     await button(page, '이어서 연습하기 ›').click();
     assert.ok(await button(page, '다음').isDisabled());
@@ -71,7 +72,8 @@ async function overlayPause(browser, url) {
   });
   try {
     await button(page, '이어서 연습하기 ›').click();
-    await button(page, '시작하기').click();
+    // 파트 첫 연주 앞 자세 촬영(S7)을 넘기면, 레슨 안 전환 연습은 메트로놈 3·2·1 뒤 저절로 시작한다(18:40)
+    await page.getByRole('button', { name: /^(건너뛰기|다음 단계로)$/ }).first().click();
     await page.locator('.bars .bar.ok').first().waitFor();
     await button(page, '나가기').click();
     const dialog = page.getByRole('dialog', { name: '지금 나갈까요?' });
@@ -113,7 +115,8 @@ async function retryAndScores(browser, url) {
     assert.equal(state.songPractice.best, 81);
     console.log('PASS final-lesson retry retains course completion and simulated scores stay separate from best');
   } finally { await page.close(); }
-  page = await openPage(browser, url, { panel: { speed: 2 }, songPractice: { last: null, count: 0, best: 81 } }, 'allow');
+  // 끝까지 안 친 연습은 최고 점수를 올리지 않는다. 진짜 코드 소리 판정은 guitar-app-browser 12마디 검사가 본다(여기는 소리 크기로 세는 모의 판정)
+  page = await openPage(browser, url, { panel: { speed: 2, judge: 'allok' }, songPractice: { last: null, count: 0, best: 81 } }, 'allow');
   try {
     await button(page, 'MY').click();
     await button(page, '곡 연습하러 가기').click();
@@ -151,27 +154,8 @@ async function retryAndScores(browser, url) {
     assert.ok(edgeCases.partial.secs.slice(1).every((section) => section.state === 'skip'));
     console.log('PASS perfect partial attempt does not replace best; chord errors stay distinct from timing');
   } finally { await page.close(); }
-  page = await openPage(browser, url, { panel: { speed: 4 } }, 'allow');
-  try {
-    await button(page, 'MY').click();
-    await button(page, '곡 연습하러 가기').click();
-    await page.waitForFunction(async () => (await import('/src/lib.js')).mic.state === 'on');
-    await page.evaluate(async () => {
-      const { mic, content } = await import('/src/lib.js');
-      mic.level = () => performance.now() % 200 < 100 ? 0.2 : 0;
-      mic.chroma = () => {
-        const name = document.querySelector('.sp-bar.now b')?.textContent.trim() || 'Em';
-        return Array.from({ length: 12 }, (_, index) => content.chordNotes[name].includes(index) ? 1 : 0);
-      };
-    });
-    await page.getByRole('heading', { name: '곡 연습 리포트' }).waitFor();
-    const state = await stored(page);
-    assert.equal(state.songPractice.last.complete, true);
-    assert.equal(state.songPractice.last.judge, 'mic');
-    assert.ok(state.songPractice.last.score > 80);
-    assert.equal(state.songPractice.best, state.songPractice.last.score);
-    console.log('PASS eligible complete microphone attempt updates best with measured result');
-  } finally { await page.close(); }
+  // 마이크로 끝까지 친 연습이 최고 점수를 올리는지는 진짜 기타 소리로 보는 guitar-app-browser 12마디 검사에서 확인한다
+  // (예전에는 소리 크기 + 화음 흉내로 봤지만, 11/18부터 코드 인식이 Chordino라 흉내가 통하지 않는다)
 }
 
 async function backgroundAndKeyboard(browser, url) {

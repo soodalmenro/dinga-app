@@ -126,7 +126,12 @@ Chordino는 같은 코드를 `Em7`, `Em/B`, `E5`처럼 변형 이름으로 읽�
 
 **검사**: 새 `qa/participant-preset.cjs`. 고친 검사 `qa.cjs`, `progress-checkpoint`, `setting-integrity`(자동 세팅 없는 번호 P7로), `resume-variant`, `posture-photo-browser`, `course-walkthrough`(연습 시간은 실제 시간).
 
-## 9. 그대로 둔 것
+## 9. 실패하던 검사 정리 (11/19)
 
-- `qa/input-diagnostics-browser.cjs`는 수아 원본에서도 Chrome에서 같은 지점(출석 7초 대기)에서 실패해 원인을 확인하지 못했다. Edge 고정 검사 3개는 Chrome으로 바꿔 돌려 통과했다.
-- 수정 전 코드에서도 실패하던 검사는 그대로 두었다: `media-recovery`의 전환 연습 부분, `embedded-progress`, `evaluation-pause`의 출석 부분, `quality-review`.
+계속 실패하던 검사 5개를 확인했다. 모두 앱 문제가 아니라 검사가 예전 앱 기준이었다.
+
+- `embedded-progress`: 파트 중간으로 들어가면 먼저 나오는 자세 촬영(S7)을 몰랐고, 레슨 안 전환 연습의 [시작하기]를 찾았다(지금은 3·2·1 뒤 저절로 시작). 마이크 끊김 부분은 소리 크기로 세는 모의 판정으로.
+- `evaluation-pause` 출석: 소리 크기로 출석을 채우려 했다(출석은 코드 인식으로 센다). 코드가 들리는 상태를 흉내 내어 "패널을 열면 출석이 멈추는지"를 그대로 확인한다.
+- `quality-review`: 소리 크기·옛 화음 흉내로 마이크 판정을 흉내 냈다. 늦은 마이크 허락·부분 연습 최고 점수는 모의 판정으로, "마이크로 끝까지 치면 최고 점수 갱신"은 실제 기타 소리 검사(`guitar-app-browser` 12마디)로 옮겼다.
+- `media-recovery` 전환 부분: 같은 이유로 모의 판정(random)으로 끊김 복구를 본다.
+- `input-diagnostics-browser`: 검사가 만든 가짜 Em이 늘 같은 크기로 울려 코드 인식이 B5·Ab°로 읽었다. 실제 기타처럼 1초마다 치고 줄어드는 소리로 바꿨고, 출석 대기는 20초로.

@@ -17,7 +17,7 @@ async function open(browser,url,state,allowAudio=false){const p=await browser.ne
   p=await open(browser,url,kind==='capture'?{panel:{variant:'prd',speed:1},resume:{lesson:'em',part:0,step:0}}:kind.startsWith('eight')?{ptab:'transition'}:kind==='attendance'?{attendances:[],panel:{speed:1}}:{},['attendance','setup'].includes(kind));
   if(kind==='attendance'){
    await button(p,'출석하기').click();await p.waitForFunction(async()=>(await import('/src/lib.js')).mic.state==='on');
-   await p.evaluate(async()=>{const{mic}=await import('/src/lib.js');mic.level=()=>window.panelAmplitude||0;window.panelAmplitude=.2;});await p.waitForTimeout(650);await panel(p);
+   await p.evaluate(async()=>{/* 출석은 소리 크기가 아니라 코드 인식으로 센다(11/18). 코드가 들리는 상태를 흉내 낸다 */await import('/src/guitarEar.js');window.dingaEar.status=()=>'ready';window.dingaEar.hearing=()=>(window.panelAmplitude||0)>0;window.panelAmplitude=.2;});await p.waitForTimeout(650);await panel(p);
    const before=await p.getByText(/듣고 있어요 ·/).innerText();await p.waitForTimeout(2500);
    assert.equal(await p.evaluate(()=>JSON.parse(localStorage.getItem('dinga-v1')).attendances.length),0,'panel sound cannot complete attendance');
    assert.equal(await p.getByText(/듣고 있어요 ·/).innerText(),before,'observed sound remains stable behind panel');
