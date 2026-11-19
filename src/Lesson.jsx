@@ -16,15 +16,15 @@ import { usePracticePause } from './usePracticePause.js';
 import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { observeMediaStream, mediaStreamIsLive } from './mediaLifecycle.js';
 import { useBeforeUnload } from './useBeforeUnload.js';
-import { GuitarInputStatus, useEarSnapshot, earLine } from './GuitarInputStatus.jsx';
+import { GuitarInputStatus, useEarSnapshot, earLine, useStrumFeedback, askLine } from './GuitarInputStatus.jsx';
 
 
 // 소리가 난 횟수를 센다
-function useHits(active, micOn, target=null,simulated=false) {
+function useHits(active, micOn, target=null,simulated=false,fb=null) {
   const [n, setN] = useState(0);
   useEffect(() => {
     if (!active || !micOn || mic.state !== 'on') return undefined;
-    return makeOnsetDetector(() => setN((v) => v + 1),{target,simulated});
+    return makeOnsetDetector(() => { setN((v) => v + 1); fb?.hit(); },{target,simulated,onMiss:fb?.miss,onUnclear:fb?.unclear});
   }, [active, micOn,target,simulated]);
   return n;
 }
@@ -282,22 +282,23 @@ function HitDots({ n, need = 4 }) {
 function Stage({ say, face, size }) {
   return <div className="grow stage-say"><div className="bubble say" role="status" key={say}>{say}</div><Piki name={face} size={size} /></div>;
 }
-// 연주 단계 말풍선 문구: 마이크 준비 · 마이크 없음 · 연습 모드 · 실제로 들린 코드
-function useSay(micOn, simulated, target, ask, offline) {
+// 연주 단계 말풍선 문구: 마이크 준비 · 마이크 없음 · 친 소리에 대한 한마디(공통) · 시킬 말
+function useSay(micOn, simulated, target, ask, offline, fb) {
   const ear = useEarSnapshot();
   if (micOn === null) return '마이크를 준비하고 있어요';
   if (micOn === false) return offline;
-  if (simulated) return ask;
-  return earLine(ear, target, ask);
+  if (!simulated && ear.status === 'loading') return '코드를 들을 준비를 하고 있어요';
+  return fb?.line?.text || ask;
 }
 
 function Play({ step, chord, next, micOn, running,s,retryEar }) {
   const simulated=s.panel.judge!=='mic';
   const target = step.showChord ? chord : null;
-  const n = useHits(running, micOn,target,simulated);
+  const fb = useStrumFeedback();
+  const n = useHits(running, micOn,target,simulated,fb);
   const ok = micOn === false || n >= 4;
-  const ask = target ? `${chord} 코드를 4번 쳐 주세요` : '아는 코드를 4번 쳐 주세요!';
-  const say = useSay(micOn, simulated, target, ask, `${target ? `${chord} 코드를` : '아는 코드를'} 쳐 보고 다음을 눌러요`);
+  const ask = target ? askLine(chord) : '아는 코드를 쳐 보세요!';
+  const say = useSay(micOn, simulated, target, ask, `${target ? `${chord} 코드를` : '아는 코드를'} 쳐 보고 다음을 눌러요`, fb);
   return (<>
     <div><div className="cap">소리 내기</div><div className="big">{target || '튕겨 보기'}</div></div>
     {target && <div className="chordbox"><Chord name={chord} scale={0.62} /></div>}
@@ -315,6 +316,7 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
   const [fin, setFin] = useState(false);
   const [hits, setHits] = useState({});
   const [retry,setRetry]=useState(false);
+  const fb = useStrumFeedback();
   const [beat, setBeat] = useBeat(bpm, speed, running && micOn !== null && !fin&&!retry,8,BEAT_START);
   const simulated=s.panel.judge!=='mic'||micOn===false;
   const beatRef = useRef(beat); beatRef.current = beat;
@@ -326,7 +328,7 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
   const slotRef = useRef(beatSlot); slotRef.current = beatSlot;
   useEffect(() => {
     if (!running || !micOn || mic.state !== 'on') return undefined;
-    return makeOnsetDetector((_at,_level,originalBeat) => { if (originalBeat>=0&&originalBeat<8) setHits((h) => ({ ...h, [originalBeat]: true })); },{target:chord,simulated,snapshot:()=>slotRef.current()});
+    return makeOnsetDetector((_at,_level,originalBeat) => { if (originalBeat>=0&&originalBeat<8) { setHits((h) => ({ ...h, [originalBeat]: true })); fb.hit(); } },{target:chord,simulated,snapshot:()=>slotRef.current(),onMiss:(...a)=>{ if (a[2]>=0&&a[2]<8) fb.miss(...a); },onUnclear:(...a)=>{ if (a[2]>=0&&a[2]<8) fb.unclear(...a); }});
   }, [running, micOn,chord,simulated]);
   useEffect(() => {
     if(beat<8||retry||fin||!running)return undefined;
@@ -356,8 +358,9 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
       : micOn === null ? '마이크를 준비하고 있어요'
         : beat < -4 ? (bpm === 60 ? `이번엔 조금 더 빨라져요! 딱 소리에 맞춰 ${chord} 코드를 8번 쳐요` : `딱 소리에 맞춰 ${chord} 코드를 8번 쳐요`)
           : beat < 0 ? `준비… ${-beat}`
+          : fb.line?.wrong ? fb.line.text
           : miss ? `박자를 놓쳤어요. ${chord} 코드를 딱 소리에 맞춰요`
-            : simulated ? `딱 소리에 맞춰 ${chord} 코드를 쳐요` : earLine(ear, chord, `딱 소리에 맞춰 ${chord} 코드를 쳐요`);
+            : fb.line ? fb.line.text : askLine(chord, true);
   return (<>
     <div><div className="cap">박자에 맞춰 쳐요</div><div className="big">{chord}</div></div>
     <div className="row" style={{ justifyContent: 'center' }}><span className={`pill ${bpm === 50 ? 'y' : 'none'}`}>50 BPM</span><b style={{ color: 'var(--gray)' }}>→</b><span className={`pill ${bpm === 60 ? 'y' : 'none'}`}>60 BPM</span></div>
@@ -371,10 +374,11 @@ function Beat({ chord, next, micOn, speed, running,s,retryEar }) {
 
 function Blind({ chord, next, micOn, running,s,retryEar }) {
   const simulated=s.panel.judge!=='mic';
-  const n = useHits(running, micOn,chord,simulated);
+  const fb = useStrumFeedback();
+  const n = useHits(running, micOn,chord,simulated,fb);
   // 치기 전에는 4번, 치기 시작하면 남은 횟수를 말한다(11/18 18:40 QA)
   const ask = n === 0 ? `화면을 보지 않고 ${chord} 코드를 4번 쳐 주세요` : `화면을 보지 않고 ${chord} 코드를 ${Math.max(0, 4 - n)}번 더 쳐 주세요`;
-  const say = useSay(micOn, simulated, chord, ask, `${chord} 코드를 쳐 보고 다음을 눌러요`);
+  const say = useSay(micOn, simulated, chord, ask, `${chord} 코드를 쳐 보고 다음을 눌러요`, fb);
   const [hint, setHint] = useState(false);
   useEffect(() => { if (!hint) return undefined; const id = setTimeout(() => setHint(false), 3000); return () => clearTimeout(id); }, [hint]);
   return (<>

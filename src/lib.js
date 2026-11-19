@@ -352,9 +352,9 @@ export function guessChord(ch) {
 }
 
 // 소리가 "시작된 순간"을 알려 주는 감지기. 조용했다가 기준값을 넘으면 onHit 호출
-export function makeOnsetDetector(onHit, {target=null,snapshot,simulated=false,onMiss}={}) {
+export function makeOnsetDetector(onHit, {target=null,snapshot,simulated=false,onMiss,onUnclear}={}) {
   let armed = true; let raf = 0; let stopped = false;
-  const gate=createGuitarHitGate({onHit,onMiss,target,snapshot});
+  const gate=createGuitarHitGate({onHit,onMiss,onUnclear,target,snapshot});
   if(!simulated)gate.reset(); // A resumed/held sound needs a quiet interval before a new hit.
   const loop = () => {
     if (stopped) return;

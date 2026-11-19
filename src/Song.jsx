@@ -8,12 +8,11 @@ import { MicrophoneRecovery } from './MicrophoneRecovery.jsx';
 import { useBeforeUnload } from './useBeforeUnload.js';
 import {GuitarInputStatus} from './GuitarInputStatus.jsx';
 import {guitarBarIndex,finalizedGuitarBars} from './guitarTimeline.js';
-import { canonicalChord } from './chordMatch.js';
+import { useStrumFeedback, chordLabel, askLine } from './GuitarInputStatus.jsx';
 
 const SONG = content.songChart.bars;
 const pairBars = (p) => [p[0], p[0], p[1], p[1], p[0], p[0], p[1], p[1]];
 const MARK = { ok: '✓', late: '늦음', none: '–', wrong: '다른 코드' };
-const chordLabel = (c) => canonicalChord(c).replace(/5$/, '') || c;
 
 export function Song({ s, update, go, params, microphone, paused = false, restartCurrentBar = false, coach = null }) {
   const pair = params && params.pair; const BARS = pair ? pairBars(pair) : SONG; const emb = params && params.onDone; // emb = 레슨 안 전환 단계
@@ -39,9 +38,8 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   const hits = useRef([]);
   // 다른 코드로 친 소리(11/19 QA): 마디 판정은 '다른 코드', 캐릭터가 바로 알려 준다
   const misses = useRef([]); const wrongChords = useRef({});
-  const [miss, setMiss] = useState(null);
+  const fb = useStrumFeedback();
   const [retry, setRetry] = useState(false);
-  useEffect(() => { if (!miss) return undefined; const id = setTimeout(() => setMiss(null), 2500); return () => clearTimeout(id); }, [miss]);
   const elapsed = useRef(0);
   const results = useRef([]);
   const startLogged = useRef(false);
@@ -98,8 +96,8 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
   // 연주: 박자를 세고 마디가 끝날 때마다 판정
   useEffect(() => {
     if (phase !== 'play' || exit || suspended || retry) return undefined;
-    const onMiss = (_at, _level, originalElapsed, heard) => { misses.current.push({ t: originalElapsed, chord: chordLabel(heard.chord) }); setMiss({ chord: chordLabel(heard.chord), target: heard.target }); };
-    const stop = micOn ? makeOnsetDetector((_at,_level,originalElapsed) => hits.current.push(originalElapsed),{onMiss,target:()=>BARS[Math.min(7,guitarBarIndex(elapsed.current,beatMs))],snapshot:()=>elapsed.current,simulated:judgeMode!=='mic'}) : () => {};
+    const onMiss = (_at, _level, originalElapsed, heard) => { misses.current.push({ t: originalElapsed, chord: chordLabel(heard.chord) }); fb.miss(_at, _level, originalElapsed, heard); };
+    const stop = micOn ? makeOnsetDetector((_at,_level,originalElapsed) => { hits.current.push(originalElapsed); fb.hit(); },{onMiss,onUnclear:fb.unclear,target:()=>BARS[Math.min(7,guitarBarIndex(elapsed.current,beatMs))],snapshot:()=>elapsed.current,simulated:judgeMode!=='mic'}) : () => {};
     const out = results.current;
     if (!startLogged.current) { startLogged.current = true; logEvent('song_start', { tempo, mic: !!micOn, judge: judgeMode }); }
     let lastTick = performance.now(); let lastBeat = -1;
@@ -130,9 +128,10 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       if (out.length >= 8) {
         clearInterval(id); stop();
         if (emb) {
-          const wrong = out.includes('wrong');
+          // 한 번이라도 다른 코드로 치거나, 마이크 판정에서 소리가 안 들린 마디가 있으면 다시 연습(11/19 QA)
+          const wrong = out.includes('wrong') || (judgeMode === 'mic' && out.includes('none'));
           logEvent('transition_end', { pair: pair.join('-'), judge: judgeMode, bars: out.join(','), retry: wrong });
-          if (wrong) { setRetry(true); return; } // 한 번이라도 다른 코드로 치면 다시 연습(11/19 QA)
+          if (wrong) { setRetry(true); return; }
           sfx.ok(); params.onDone(); return;
         }
         update((d) => {
@@ -149,12 +148,12 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
 
   const again = () => {
     results.current = []; hits.current = []; misses.current = []; wrongChords.current = {}; elapsed.current = 0;
-    setRes([]); setBar(0); setBeat(0); setMiss(null); setRetry(false); setPhase('wait');
+    setRes([]); setBar(0); setBeat(0); fb.clear(); setRetry(false); setPhase('wait');
   };
   const startManual = () => { setActiveJudge(judgeMode); setPhase('play'); };
   // 레슨 안에서는 안내를 캐릭터 말풍선으로(11/18 QA)
-  const wrongBars = res.filter((r) => r === 'wrong').length;
-  const embSay = retry ? `다른 코드로 친 마디가 ${wrongBars}개 있어요. 처음부터 다시 해 볼까요?` : miss ? `지금은 ${miss.chord} 코드예요. ${miss.target} 코드를 쳐 주세요` : micOn === null ? '마이크를 준비하고 있어요' : count ? `딱 소리에 맞춰요. 준비… ${count}` : phase === 'play' ? `${BARS[bar]} 코드를 딱 소리에 맞춰 쳐요` : '곧 시작해요';
+  const wrongBars = res.filter((r) => r === 'wrong').length; const silentBars = res.filter((r) => r === 'none').length;
+  const embSay = retry ? (wrongBars ? `다른 코드로 친 마디가 ${wrongBars}개 있어요. 처음부터 다시 해 볼까요?` : `소리가 안 들린 마디가 ${silentBars}개 있어요. 처음부터 다시 해 볼까요?`) : fb.line ? fb.line.text : micOn === null ? '마이크를 준비하고 있어요' : count ? `딱 소리에 맞춰요. 준비… ${count}` : phase === 'play' ? askLine(BARS[bar], true) : '곧 시작해요';
   return (
     <div className={emb ? 'embed' : 'screen'}>
       {emb ? <div><div className="cap">코드 전환 연습</div><div className="big">{pair[0]} ↔ {pair[1]}</div></div>
@@ -172,7 +171,7 @@ export function Song({ s, update, go, params, microphone, paused = false, restar
       </div>
       {emb
         ? <div className="grow stage-say"><div className="bubble say" role="status" key={embSay}>{embSay}</div>{coach || <Piki name="play" size={110} />}</div>
-        : <div className="grow stage-say">{miss && <div className="bubble say" role="status" key={miss.chord + res.length}>지금은 {miss.chord} 코드예요. {miss.target} 코드를 쳐 주세요</div>}{coach || <Piki name="play" size={170} />}</div>}
+        : <div className="grow stage-say">{fb.line && <div className="bubble say" role="status" key={fb.line.text}>{fb.line.text}</div>}{coach || <Piki name="play" size={170} />}</div>}
       {retry && <button className="btn" onClick={again}>다시 연습하기</button>}
       {phase === 'wait' && micOn === false && !emb && <button className="btn" onClick={startManual}>시작하기</button>}
       {phase === 'wait' && micOn === null && !inputLost && !emb && <button className="btn line" onClick={skipMic}>마이크 없이 계속하기</button>}

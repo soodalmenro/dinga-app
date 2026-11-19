@@ -1,6 +1,6 @@
 import { sameChord } from './chordMatch.js';
 // Match new musical evidence to the original attack, never to a later beat.
-export function createGuitarHitGate({onHit,onMiss,target=null,snapshot}={}) {
+export function createGuitarHitGate({onHit,onMiss,onUnclear,target=null,snapshot}={}) {
   let armed=true,pending=null,last=-Infinity,valley=Infinity,lastAttack=-Infinity;
   return {
     reset(){armed=false;pending=null;valley=Infinity;lastAttack=-Infinity;},
@@ -12,11 +12,12 @@ export function createGuitarHitGate({onHit,onMiss,target=null,snapshot}={}) {
       // The rise is judged relative to the live threshold: a fixed .004 minimum
       // ignored every re-strum from a quiet phone microphone.
       const attack=at-lastAttack>=350&&Number.isFinite(valley)&&level>=valley*2.2&&level-valley>=threshold*.5;
-      if(level>threshold&&(armed||attack)){armed=false;lastAttack=at;valley=level;pending={at,level,slot:snapshot?.(),target:typeof target==='function'?target():target};}
+      if(level>threshold&&(armed||attack)){armed=false;lastAttack=at;valley=level;pending={at,level,threshold,slot:snapshot?.(),target:typeof target==='function'?target():target};}
       if(at-lastAttack<250)valley=level;else valley=Math.min(valley,level);
       if(level<threshold*.5)armed=true;
       if(!pending)return;
-      if(at-pending.at>2000){pending=null;return;}
+      // 친 소리는 났는데 2초 안에 코드로 잡히지 않음: 작은 소리인지 먹먹한 소리인지 알려 준다(11/19 QA: 명확한 피드백)
+      if(at-pending.at>2000){const p=pending;pending=null;onUnclear?.(p.at,p.level,p.slot,{threshold:p.threshold,quiet:p.level<p.threshold*2.5});return;}
       const o=observation;
       if(!o?.usable||!o.chord||!Number.isFinite(o.sourceAt)||o.sourceAt<pending.at+200||o.sourceAt>at||at-o.sourceAt>1000||o.stableMs<350)return;
       const done=pending;pending=null;

@@ -92,7 +92,7 @@ const img = (p) => p.evaluate(() => [...document.querySelectorAll('.stage img')]
   ok('파트 완료 저장: 완료 체크, 실제 연습 시간만 더함, 이어서 위치 삭제', s.done.em[0] === true && s.history[ds(0)] > before && s.history[ds(0)] < before + 180 && s.resume === null, JSON.stringify([s.done.em, s.history, s.resume]));
   // 단계 유형 확인(11/18 순서): 파트 2 코드 연습(소리 → 전환), 파트 3 박자 연습(안 보고 치기 → 박자)
   await btn(p, '다음 파트').click(); await p.waitForTimeout(700); await p.getByText('건너뛰기').click(); await p.waitForTimeout(400);
-  t = await txt(p); ok('파트 2 코드 연습: Em 소리 내기부터', t.includes('Em 코드를 4번 쳐 주세요') && t.includes('Em'), t.slice(0, 100));
+  t = await txt(p); ok('파트 2 코드 연습: Em 소리 내기부터', t.includes('Em 코드를 쳐 보세요!') && t.includes('Em'), t.slice(0, 100));
   ok('연주 단계: 캐릭터 말풍선으로 코드 안내', await p.locator('.bubble.say').count() === 1);
   ok('연주 단계: 소리 점 4개', await p.locator('.dots i').count() === 4);
   await p.waitForFunction(() => document.querySelectorAll('.dots i.on').length >= 1, null, { timeout: 8000 }).catch(() => {});
